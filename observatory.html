@@ -1,0 +1,1386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Squeek Lab • Live Hamster & API Observatory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0b0e17;
+  --bg-gradient: radial-gradient(circle at 85% -20%, #1e263d 0%, #0b0e17 65%);
+  --panel: #131826;
+  --panel-card: #182032;
+  --panel-card-hover: #1e2840;
+  --border: #232d44;
+  --border-focus: #3e4f75;
+  --txt: #f4f7fc;
+  --txt-muted: #8e9db3;
+  --txt-subtle: #5f6e85;
+  --lime: #b6f343;
+  --lime-glow: rgba(182, 243, 67, 0.22);
+  --cyan: #52e1e8;
+  --pink: #ff7ebb;
+  --amber: #ffb84d;
+  --red: #ff6b6b;
+  --purple: #aa7ef7;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--txt);
+  font: 14.5px/1.55 'Plus Jakarta Sans', system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+button, input, select {
+  font: inherit;
+  outline: none;
+}
+
+button {
+  cursor: pointer;
+  color: var(--txt);
+  background: #202b3f;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.18s ease;
+}
+
+button:hover {
+  background: #2a3750;
+  border-color: #3b4c6e;
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button.active {
+  color: #0b0e17;
+  background: var(--lime);
+  border-color: var(--lime);
+  box-shadow: 0 0 16px var(--lime-glow);
+}
+
+input, select {
+  background: #0d121c;
+  color: var(--txt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  transition: border-color 0.18s ease;
+}
+
+input:focus, select:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgba(82, 225, 232, 0.15);
+}
+
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.wrap {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+/* Header */
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Fredoka', cursive, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--lime);
+  background: rgba(182, 243, 67, 0.1);
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid rgba(182, 243, 67, 0.25);
+  margin-bottom: 6px;
+}
+
+h1 {
+  font-family: 'Fredoka', sans-serif;
+  font-size: clamp(26px, 3.8vw, 38px);
+  margin: 2px 0 4px;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tagline {
+  color: var(--txt-muted);
+  margin: 0;
+  font-size: 14px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: var(--panel-card);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--txt-subtle);
+  display: inline-block;
+  position: relative;
+}
+
+.dot.ok {
+  background: var(--lime);
+  box-shadow: 0 0 10px var(--lime);
+}
+
+.dot.ok::after {
+  content: '';
+  position: absolute;
+  top: -3px; left: -3px; right: -3px; bottom: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--lime);
+  opacity: 0.4;
+  animation: pulse-ring 1.8s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  70% { transform: scale(1.7); opacity: 0; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+.dot.bad { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.dot.idle { background: var(--amber); }
+
+/* Controls Toolbar */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+
+.toolbar-left, .toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  border-radius: 99px;
+  padding: 6px 13px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--txt-muted);
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-pill {
+  color: var(--cyan);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
+}
+
+.tabs button {
+  font-size: 13.5px;
+  padding: 8px 15px;
+  white-space: nowrap;
+  background: transparent;
+  border-color: transparent;
+  color: var(--txt-muted);
+  border-radius: 10px;
+}
+
+.tabs button:hover {
+  background: var(--panel-card);
+  color: var(--txt);
+  border-color: var(--border);
+}
+
+.tabs button.active {
+  color: #0b0e17;
+  background: var(--lime);
+  border-color: var(--lime);
+}
+
+/* Grids & Cards */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.card {
+  background: var(--panel-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-focus);
+}
+
+.card .label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--txt-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card .value {
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 700;
+  font-family: 'Fredoka', sans-serif;
+  color: var(--txt);
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.card .value.highlight { color: var(--lime); }
+.card .value.cyan { color: var(--cyan); }
+.card .value.pink { color: var(--pink); }
+
+.card .desc {
+  font-size: 12px;
+  color: var(--txt-subtle);
+  margin-top: 6px;
+}
+
+/* Interactive Wheel Stage */
+.wheel-stage-container {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.hamster-box {
+  background: linear-gradient(145deg, #161e31, #101625);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  text-align: center;
+}
+
+.wheel-graphic-wrap {
+  width: 220px;
+  height: 220px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+/* Wheel SVG Animations */
+.wheel-rotating {
+  transform-origin: center center;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.hamster-state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-weight: 700;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.hamster-state-badge.running {
+  background: rgba(182, 243, 67, 0.15);
+  border: 1px solid var(--lime);
+  color: var(--lime);
+}
+
+.hamster-state-badge.resting {
+  background: rgba(255, 184, 77, 0.15);
+  border: 1px solid var(--amber);
+  color: var(--amber);
+}
+
+/* Two-column layout */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.box-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Key-Value Rows */
+.kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 13.5px;
+}
+
+.kv:last-child { border-bottom: none; }
+.kv span { color: var(--txt-muted); }
+.kv b {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--txt);
+  text-align: right;
+  word-break: break-all;
+}
+
+/* Tables */
+.scroll {
+  overflow-x: auto;
+  max-height: 480px;
+  scrollbar-width: thin;
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: #171e2e;
+  color: var(--lime);
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  z-index: 2;
+}
+
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tag {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.tag.lime { background: rgba(182, 243, 67, 0.15); color: var(--lime); border: 1px solid rgba(182,243,67,0.3); }
+.tag.cyan { background: rgba(82, 225, 232, 0.15); color: var(--cyan); border: 1px solid rgba(82,225,232,0.3); }
+.tag.purple { background: rgba(170, 126, 247, 0.15); color: var(--purple); border: 1px solid rgba(170,126,247,0.3); }
+.tag.pink { background: rgba(255, 126, 187, 0.15); color: var(--pink); border: 1px solid rgba(255,126,187,0.3); }
+
+/* SVG Chart */
+.chart-box {
+  background: #0d121c;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.chart {
+  width: 100%;
+  height: 130px;
+  display: block;
+}
+
+/* Raw JSON Drawer */
+details.raw-drawer {
+  margin-top: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+details.raw-drawer summary {
+  padding: 14px 18px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  background: #151c2c;
+  transition: background 0.15s ease;
+}
+
+details.raw-drawer summary:hover {
+  background: #1b2438;
+}
+
+.raw-content {
+  padding: 14px 18px;
+  background: #0c1018;
+}
+
+pre.raw {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #a3d9d3;
+  max-height: 420px;
+  overflow: auto;
+}
+
+/* Preset Chips */
+.presets-wrap {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.chip {
+  background: #1a2336;
+  border: 1px solid #2d3b58;
+  color: var(--txt-muted);
+  border-radius: 99px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip:hover {
+  color: var(--lime);
+  border-color: var(--lime);
+  background: #222f49;
+}
+
+/* Toast */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--lime);
+  color: #0b0e17;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 999;
+}
+
+#toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.notice-banner {
+  background: rgba(255, 184, 77, 0.1);
+  border: 1px solid rgba(255, 184, 77, 0.25);
+  color: #ffd285;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin: 16px 0;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 960px) {
+  .wheel-stage-container { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 580px) {
+  .grid { grid-template-columns: 1fr; }
+  .wrap { padding: 16px 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <!-- Top Branding & Status Header -->
+  <header class="top">
+    <div>
+      <div class="brand-badge">🐹 SCHRÖDINGER'S HAMSTER • PROOF-OF-WORK OBSERVATORY</div>
+      <h1>Squeekchain Lab <span style="color:var(--lime)">⚡</span></h1>
+      <p class="tagline">Real-time physical hamster telemetry, cryptographic blocks & Sepolia economic state.</p>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span id="connection" class="status-badge"><i class="dot"></i> Connecting...</span>
+      <span id="lastUpdated" class="status-badge" style="color:var(--txt-muted);">Waiting for first poll...</span>
+    </div>
+  </header>
+
+  <!-- Controls & Links Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button id="refresh" title="Query the active endpoint right now">↻ Refresh Now</button>
+      <label class="pill" style="cursor:pointer;">
+        <input type="checkbox" id="auto" checked style="cursor:pointer; accent-color: var(--lime);">
+        <span>Auto-refresh (10s)</span>
+      </label>
+      <span id="countdownPill" class="pill timer-pill">⏱ Next: 10s</span>
+    </div>
+    <div class="toolbar-right">
+      <span class="pill" title="Public Squeekchain Gateway">API: <code>api.squeekchain.com/v1</code></span>
+      <a class="pill" target="_blank" rel="noopener" href="https://docs.squeekchain.com/developers/api/">Official Docs ↗</a>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <nav class="tabs" id="tabs"></nav>
+
+  <!-- Status / Network Notice -->
+  <div id="notice" style="min-height: 22px; font-size: 13px; color: var(--txt-muted); margin-bottom: 12px;"></div>
+
+  <!-- Dynamic Tab Content -->
+  <main id="content"></main>
+
+  <!-- Educational Explainer Notice -->
+  <div class="notice-banner">
+    <span style="font-size:18px;">💡</span>
+    <span>Live telemetry is read directly from an active RP2040 hall-sensor counter with cryptographic hardware sign-off (Trust-M). Work units accumulate per epoch and settle onto Sepolia in regular rounds.</span>
+  </div>
+</div>
+
+<div id="toast">Copied to clipboard!</div>
+
+<script>
+'use strict';
+const BASE = 'https://api.squeekchain.com/v1';
+
+const endpoints = {
+  live: { name: '⚡ Live Hamster', path: '/status', desc: 'Real-time wheel rotation, RPM & hardware pipeline' },
+  economy: { name: '💰 Token Economy', path: '/economy/state', desc: 'SQK tokenomics, halving schedule & NFT power' },
+  runs: { name: '🐹 Wheel Runs', path: '/measurement/runs?limit=25', desc: 'Certified passage segments recorded by hardware' },
+  events: { name: '🌌 Chain Events', path: '/events?limit=30', desc: 'Settlement triggers and block notifications' },
+  core: { name: '⛓️ Core Settlement', path: '/core', desc: 'Confirmed work and smart contract anchors' },
+  blocks: { name: '🧱 Provisional Blocks', path: '/measurement/blocks', desc: 'Optimistic blocks in queue before anchoring' },
+  settlements: { name: '✅ Settlements', path: '/settlements', desc: 'Historical round payout records' },
+  stats: { name: '📈 Activity Stats', path: '/measurement/stats?range=7d', desc: '7-day historical telemetry analysis' },
+  lookup: { name: '🔎 Account & NFT Explorer', path: null, desc: 'Query wallet addresses and Squeek NFT stats' }
+};
+
+let tab = 'live';
+let payloads = new Map();
+let meta = new Map();
+let autoInterval = null;
+let countdown = 10;
+let history = [];
+
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '—').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function showToast(msg = 'Copied to clipboard!') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// Format 18-decimal base units
+function formatSQK(baseUnits, decimals = 2) {
+  if (!baseUnits) return '0 SQK';
+  try {
+    const s = String(baseUnits);
+    if (s.length <= 18) {
+      const val = Number('0.' + s.padStart(18, '0')).toFixed(decimals);
+      return `${val} SQK`;
+    }
+    const whole = s.slice(0, s.length - 18);
+    const frac = s.slice(s.length - 18, s.length - 18 + decimals);
+    const formattedWhole = Number(whole).toLocaleString();
+    return `${formattedWhole}.${frac} SQK`;
+  } catch (e) {
+    return `${baseUnits} baseUnits`;
+  }
+}
+
+// Convert millimeters to human distance
+function formatDistance(mm) {
+  if (typeof mm !== 'number') return '—';
+  const km = mm / 1_000_000;
+  const miles = km * 0.621371;
+  return `${km.toFixed(2)} km (${miles.toFixed(2)} mi)`;
+}
+
+// Convert speed to human km/h & cm/s
+function formatSpeed(mmPerSec) {
+  if (typeof mmPerSec !== 'number') return '0 cm/s';
+  const cmPerSec = mmPerSec / 10;
+  const kmh = (mmPerSec * 3600) / 1_000_000;
+  return `${cmPerSec.toFixed(1)} cm/s (${kmh.toFixed(2)} km/h)`;
+}
+
+// Render stat card
+function card(label, value, desc = '', highlightType = '') {
+  const highlightClass = highlightType ? ` ${highlightType}` : '';
+  return `
+    <div class="card">
+      <div class="label">${esc(label)}</div>
+      <div class="value${highlightClass}">${esc(value)}</div>
+      <div class="desc">${esc(desc)}</div>
+    </div>`;
+}
+
+function kv(label, val) {
+  return `<div class="kv"><span>${esc(label)}</span><b>${esc(val)}</b></div>`;
+}
+
+// Render dynamic top metric cards depending on active tab
+function getCards(d) {
+  if (tab === 'live') {
+    const m = d.measurement || {};
+    const b = d.builder || {};
+    const rpm = typeof m.rpmMilli === 'number' ? (m.rpmMilli / 1000).toFixed(1) : '0.0';
+    const isRunning = Number(rpm) > 0;
+    return [
+      card('Wheel RPM', `${rpm} RPM`, isRunning ? '⚡ Hamster active!' : 'Hamster taking a nap', isRunning ? 'highlight' : ''),
+      card('Distance Today', formatDistance(m.distanceMm), `Cumulative: ${m.distanceMm ? m.distanceMm.toLocaleString() : 0} mm`, 'cyan'),
+      card('Observed Work Units', (m.cumulativeWorkUnits || 0).toLocaleString(), 'Proof-of-work epoch counter', 'pink'),
+      card('Core Status', m.coreStatus || 'ONLINE', `Sensor: ${m.provenance || 'Hardware'}`, 'highlight')
+    ];
+  }
+
+  if (tab === 'economy') {
+    const s = d.supply || {};
+    const lc = d.lifecycle || {};
+    const nft = d.nft || {};
+    return [
+      card('Circulating SQK', formatSQK(s.totalMintedBaseUnits, 0), `Cap: ${formatSQK(s.capBaseUnits, 0)}`, 'highlight'),
+      card('Current Round', `#${lc.currentRound || '—'}`, `Stage: ${lc.stage || 'active'}`, 'cyan'),
+      card('Live NFT Squeeks', `${nft.live ? nft.live.toLocaleString() : '—'} / ${nft.issued ? nft.issued.toLocaleString() : '—'}`, `Burned: ${nft.burned || 0}`, 'pink'),
+      card('Target Chain', d.chain?.target ? d.chain.target.toUpperCase() : 'Sepolia', `Chain ID: ${d.chain?.chainId || '11155111'}`)
+    ];
+  }
+
+  if (tab === 'runs') {
+    const count = d.items?.length || 0;
+    return [
+      card('Recorded Runs', `${count} Segments`, 'Signed passage segments in batch', 'highlight'),
+      card('Certified Core Work', (d.certifiedCoreWork || 0).toLocaleString(), 'Cryptographically verified units', 'cyan'),
+      card('Freshness', d.freshness ? d.freshness.toUpperCase() : 'ONLINE', 'Hardware connection state'),
+      card('Authority', d.authority ? `${d.authority.slice(0, 10)}...` : 'Hardware Signer')
+    ];
+  }
+
+  if (tab === 'events') {
+    const evCount = d.events?.length || 0;
+    return [
+      card('Recent Events', `${evCount} Events`, 'Latest milestones and logs', 'highlight'),
+      card('Indexed Block', `#${d.chain?.indexedThroughBlock || '—'}`, 'Sepolia synchronization height', 'cyan'),
+      card('Safe Block', `#${d.chain?.safeThroughBlock || '—'}`, 'Reorg-safe confirmed block'),
+      card('Catalog Version', `v${d.catalogVersion || '1'}`)
+    ];
+  }
+
+  if (tab === 'core') {
+    const c = d.core || {};
+    return [
+      card('Settled Work Units', (c.cumulativeWork || 0).toLocaleString(), 'Fully confirmed on-chain work', 'highlight'),
+      card('Block Height', `#${c.blockHeight || 0}`, `Cumulative units: ${c.cumulativeBlockUnits || '0'}`, 'cyan'),
+      card('Settled Round', `#${c.settledThroughRound || 0}`, `Nonce: ${c.authorizationNonce || 0}`),
+      card('Contract Status', c.paused ? 'PAUSED' : 'ACTIVE', d.chain?.target?.toUpperCase() || 'SEPOLIA', c.paused ? 'pink' : 'highlight')
+    ];
+  }
+
+  if (tab === 'blocks') {
+    return [
+      card('Anchor Work', (d.anchor?.cumulativeWork || 0).toLocaleString(), 'Base confirmed work units', 'highlight'),
+      card('Provisional Blocks', `${d.blocks?.length || 0}`, 'Awaiting settlement closure', 'cyan'),
+      card('Round Genesis', d.roundSchedule?.genesisTimestamp ? new Date(d.roundSchedule.genesisTimestamp * 1000).toLocaleDateString() : '—'),
+      card('Round Duration', `${(d.roundSchedule?.roundDurationSeconds || 600) / 60} minutes`)
+    ];
+  }
+
+  if (tab === 'settlements') {
+    const count = d.recentSettlements?.length || 0;
+    return [
+      card('Settlement Batches', `${count}`, 'Historical payout records', 'highlight'),
+      card('Settled Round', `#${d.mining?.processedThroughRound || '—'}`, 'Processed mining round', 'cyan'),
+      card('Indexed Block', `#${d.chain?.indexedThroughBlock || '—'}`, 'Chain height'),
+      card('Status', d.status ? d.status.toUpperCase() : 'AVAILABLE', 'Oracle sync state')
+    ];
+  }
+
+  if (tab === 'stats') {
+    return [
+      card('Time Window', d.range || '7 Days', 'Telemetry aggregation window', 'highlight'),
+      card('API Status', d.status || 'Available', 'Observatory operational', 'cyan'),
+      card('Schema Version', `v${d.schemaVersion || 1}`),
+      card('Generated At', d.generatedAt ? new Date(d.generatedAt).toLocaleTimeString() : '—')
+    ];
+  }
+
+  return [
+    card('API Status', d.status || 'Available', 'Endpoint responding', 'highlight'),
+    card('Schema Version', `v${d.schemaVersion || 1}`),
+    card('Generated At', d.generatedAt ? new Date(d.generatedAt).toLocaleTimeString() : '—'),
+    card('Payload Fields', Object.keys(d).length)
+  ];
+}
+
+// Generate Live SVG Hamster Wheel
+function renderHamsterVisualizer(rpm, distanceMm, freshness) {
+  const isRunning = Number(rpm) > 0;
+  // Calculate spin speed based on RPM (clamped between 0.25s and 6s)
+  const duration = isRunning ? Math.max(0.3, Math.min(6, 60 / rpm)).toFixed(2) : 0;
+  const spinStyle = isRunning ? `animation: spin ${duration}s linear infinite;` : '';
+
+  return `
+    <div class="hamster-box">
+      <div class="wheel-graphic-wrap">
+        <svg viewBox="0 0 200 200" width="200" height="200">
+          <!-- Stand & Mount -->
+          <path d="M100 100 L60 185 M100 100 L140 185 M45 185 L155 185" stroke="#374563" stroke-width="6" stroke-linecap="round"/>
+          <circle cx="100" cy="100" r="12" fill="#202c44" stroke="#485b82" stroke-width="4"/>
+          
+          <!-- Spinning Wheel -->
+          <g id="spinningGroup" style="${spinStyle} transform-origin: 100px 100px;">
+            <circle cx="100" cy="100" r="82" fill="none" stroke="${isRunning ? '#b6f343' : '#415273'}" stroke-width="8" stroke-dasharray="14 6"/>
+            <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+            <!-- Spokes -->
+            <line x1="100" y1="18" x2="100" y2="182" stroke="#415273" stroke-width="3"/>
+            <line x1="18" y1="100" x2="182" y2="100" stroke="#415273" stroke-width="3"/>
+            <line x1="42" y1="42" x2="158" y2="158" stroke="#415273" stroke-width="3"/>
+            <line x1="42" y1="158" x2="158" y2="42" stroke="#415273" stroke-width="3"/>
+          </g>
+
+          <!-- Hamster character at bottom of wheel -->
+          <g transform="translate(100, 150)">
+            ${isRunning ? `
+              <!-- Running Hamster -->
+              <ellipse cx="0" cy="-6" rx="22" ry="16" fill="#f5af63"/>
+              <!-- Ears -->
+              <circle cx="-16" cy="-18" r="6" fill="#e08e45"/>
+              <circle cx="-16" cy="-18" r="3" fill="#ffb4b4"/>
+              <!-- Head -->
+              <circle cx="-10" cy="-10" r="13" fill="#f5af63"/>
+              <!-- Eye -->
+              <circle cx="-14" cy="-12" r="2.5" fill="#1b202c"/>
+              <circle cx="-15" cy="-13" r="0.8" fill="#fff"/>
+              <!-- Snout -->
+              <circle cx="-21" cy="-7" r="2" fill="#ff8a8a"/>
+              <!-- Little paws -->
+              <circle cx="-6" cy="7" r="4" fill="#ffd19d"/>
+              <circle cx="10" cy="7" r="4" fill="#ffd19d"/>
+              <!-- Tail -->
+              <circle cx="21" cy="-4" r="3.5" fill="#f5af63"/>
+            ` : `
+              <!-- Sleeping Hamster -->
+              <ellipse cx="0" cy="0" rx="24" ry="14" fill="#f5af63"/>
+              <!-- Head resting -->
+              <circle cx="-12" cy="0" r="12" fill="#f5af63"/>
+              <!-- Ear -->
+              <circle cx="-14" cy="-10" r="5" fill="#e08e45"/>
+              <!-- Closed sleeping eye -->
+              <path d="M-17 1 Q-14 4 -11 1" stroke="#333" stroke-width="2" fill="none"/>
+              <!-- Nose -->
+              <circle cx="-22" cy="3" r="2" fill="#ff8a8a"/>
+              <!-- Cute Zzz text -->
+              <text x="14" y="-12" fill="#ffb84d" font-size="12" font-weight="bold" font-family="Fredoka">z</text>
+              <text x="24" y="-20" fill="#ffb84d" font-size="16" font-weight="bold" font-family="Fredoka">Z</text>
+            `}
+          </g>
+        </svg>
+      </div>
+
+      <div class="hamster-state-badge ${isRunning ? 'running' : 'resting'}">
+        <span>${isRunning ? '⚡ SPRINTING ON WHEEL' : '😴 RESTING IN NEST'}</span>
+      </div>
+      <div style="font-size: 13px; color: var(--txt-muted); margin-top: 8px;">
+        Speed: <strong style="color:var(--txt);">${formatSpeed(isRunning ? rpm * 5.2 : 0)}</strong>
+      </div>
+    </div>`;
+}
+
+// Draw dynamic RPM History Graph
+function drawHistory() {
+  if (history.length < 2) {
+    return `<div style="padding: 24px; text-align: center; color: var(--txt-muted); font-size: 13px;">
+      📡 Sampling live telemetry... Graph points will appear as the 10s auto-poller updates.
+    </div>`;
+  }
+  const values = history.map(x => x.y);
+  const max = Math.max(1, ...values);
+  const points = history.map((x, i) => `${(i / (history.length - 1) * 1000).toFixed(1)},${(135 - (x.y / max) * 115).toFixed(1)}`).join(' ');
+
+  return `
+    <div class="chart-box">
+      <svg class="chart" viewBox="0 0 1000 150" preserveAspectRatio="none" aria-label="Recent sampled RPM">
+        <line x1="0" y1="135" x2="1000" y2="135" stroke="#253247" stroke-width="1"/>
+        <polyline points="${points}" fill="none" stroke="#b6f343" stroke-width="3" vector-effect="non-scaling-stroke"/>
+      </svg>
+      <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:11.5px; color:var(--txt-subtle);">
+        <span>${history.length} samples recorded in browser</span>
+        <span>Peak speed: <strong style="color:var(--lime);">${max.toFixed(1)} RPM</strong></span>
+      </div>
+    </div>`;
+}
+
+// Format structured table previews for runs, events, blocks, settlements
+function renderStructuredTable(d) {
+  if (tab === 'runs' && Array.isArray(d.items)) {
+    return `
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Passages</th>
+              <th>Work Units</th>
+              <th>Start Time</th>
+              <th>Duration</th>
+              <th>Provenance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${d.items.map((r, i) => {
+              const start = r.startAt ? new Date(r.startAt).toLocaleTimeString() : '—';
+              const durationMs = r.startAt && r.endAt ? Math.round((new Date(r.endAt) - new Date(r.startAt)) / 1000) : '—';
+              return `
+                <tr>
+                  <td style="color:var(--txt-muted);">${i + 1}</td>
+                  <td><strong style="color:var(--lime);">${r.passages ?? '—'}</strong></td>
+                  <td>${r.workUnits ?? '—'}</td>
+                  <td style="font-family:'JetBrains Mono',monospace;">${start}</td>
+                  <td>${durationMs !== '—' ? durationMs + 's' : '—'}</td>
+                  <td><span class="tag cyan">${esc(r.provenance || 'hardware')}</span></td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  if (tab === 'events' && Array.isArray(d.events)) {
+    return `
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Event Name</th>
+              <th>Block</th>
+              <th>Timestamp</th>
+              <th>Transaction / Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${d.events.map((e, i) => {
+              const time = e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString() : (e.observedAt ? new Date(e.observedAt).toLocaleTimeString() : '—');
+              return `
+                <tr>
+                  <td style="color:var(--txt-muted);">${i + 1}</td>
+                  <td><span class="tag purple">${esc(e.eventType || e.type || 'Event')}</span></td>
+                  <td><strong>#${e.blockNumber || e.blockHeight || '—'}</strong></td>
+                  <td style="font-family:'JetBrains Mono',monospace;">${time}</td>
+                  <td style="font-family:'JetBrains Mono',monospace; color:var(--cyan); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${esc(e.transactionHash || e.details || JSON.stringify(e))}
+                  </td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  // Fallback array table
+  const arrays = Object.entries(d).filter(([k, v]) => Array.isArray(v));
+  if (arrays.length > 0) {
+    const [arrName, arrItems] = arrays[0];
+    return `
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${esc(arrName)} Preview</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${arrItems.slice(0, 30).map((x, i) => `
+              <tr>
+                <td style="color:var(--txt-muted);">${i + 1}</td>
+                <td style="font-family:'JetBrains Mono',monospace; color:#85d2cc;">${esc(JSON.stringify(x))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  return '<div style="padding:20px; color:var(--txt-muted);">No tabular entries in this response. Inspect the full raw JSON below.</div>';
+}
+
+// Render Tab Overview
+function overview(d) {
+  if (tab === 'live') {
+    const m = d.measurement || {};
+    const b = d.builder || {};
+    const rpm = typeof m.rpmMilli === 'number' ? (m.rpmMilli / 1000).toFixed(1) : 0;
+
+    return `
+      <div class="wheel-stage-container">
+        ${renderHamsterVisualizer(rpm, m.distanceMm, m.freshness)}
+        <div class="box">
+          <div class="box-header">
+            <h2>📈 Live RPM Trend (Browser Samples)</h2>
+            <span class="tag lime">Auto-polling</span>
+          </div>
+          ${drawHistory()}
+          <div style="margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            ${kv('Sensor Driver', d.modules?.[0]?.driverId || 'usb-rp2040')}
+            ${kv('Speed (cm/s)', formatSpeed(m.speedMmPerSecond))}
+            ${kv('Freshness', m.freshness || 'online')}
+            ${kv('Oracle State', d.oracle?.state || 'accepted')}
+          </div>
+        </div>
+      </div>
+
+      <div class="layout">
+        <section class="box">
+          <div class="box-header">
+            <h2>🐹 Wheel & Hardware Telemetry</h2>
+          </div>
+          ${kv('Hardware Provenance', m.provenance || 'RP2040 hardware counter')}
+          ${kv('Counter Epoch', m.counterEpoch || '—')}
+          ${kv('Observed At', m.observedAt ? new Date(m.observedAt).toLocaleString() : '—')}
+          ${kv('Daily Distance (mm)', (m.distanceMm || 0).toLocaleString())}
+          ${kv('Cryptographic Signer', d.signer?.kind ? `${d.signer.kind} (${d.signer.algorithm})` : 'Trust-M hardware')}
+        </section>
+
+        <section class="box">
+          <div class="box-header">
+            <h2>⛓️ Consensus & Settlement Pipeline</h2>
+          </div>
+          ${kv('Builder Pipeline', b.status || 'available')}
+          ${kv('Settled Through Round', b.anchor?.settledThroughRound ?? '—')}
+          ${kv('Pending Work In Queue', (b.queued?.openRoundWorkUnits ?? 0).toLocaleString())}
+          ${kv('Settlement Queue State', d.settlementQueue?.state || 'ready')}
+          ${kv('Sepolia Core Target', d.identities?.core || '0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44')}
+        </section>
+      </div>`;
+  }
+
+  // Other Tabs Layout
+  return `
+    <div class="layout">
+      <section class="box">
+        <div class="box-header">
+          <h2>📊 Key State Properties</h2>
+        </div>
+        <div class="scroll">
+          ${renderKeyProperties(d)}
+        </div>
+      </section>
+
+      <section class="box">
+        <div class="box-header">
+          <h2>📋 Data Stream</h2>
+        </div>
+        ${renderStructuredTable(d)}
+      </section>
+    </div>`;
+}
+
+function renderKeyProperties(d) {
+  const flat = [];
+  function recurse(o, prefix = '', depth = 0) {
+    if (depth > 2 || !o || typeof o !== 'object') return;
+    for (const [k, v] of Object.entries(o)) {
+      if (Array.isArray(v)) {
+        flat.push([prefix + k, `${v.length} items`]);
+      } else if (typeof v === 'object' && v !== null) {
+        recurse(v, prefix + k + '.', depth + 1);
+      } else {
+        flat.push([prefix + k, String(v)]);
+      }
+    }
+  }
+  recurse(d);
+  return flat.slice(0, 40).map(([k, v]) => kv(k, v)).join('');
+}
+
+// Render Main Page Content
+function render() {
+  if (tab === 'lookup') {
+    renderLookup();
+    return;
+  }
+
+  const d = payloads.get(tab);
+  const m = meta.get(tab);
+
+  if (!d) {
+    $('content').innerHTML = `
+      <section class="box" style="text-align:center; padding: 48px 20px;">
+        <h3>Loading Squeekchain data...</h3>
+        <p style="color:var(--txt-muted);">Connecting to ${endpoints[tab]?.path || 'API'}</p>
+      </section>`;
+    return;
+  }
+
+  if (d.status === 'unavailable') {
+    $('content').innerHTML = `
+      <div class="notice-banner" style="border-color:var(--amber);">
+        <span>⚠️ Endpoint currently marked as unavailable: <strong>${esc(d.reason || 'Not specified')}</strong></span>
+      </div>
+      <section class="box">
+        <div class="box-header"><h2>Raw Response</h2></div>
+        <pre class="raw">${esc(JSON.stringify(d, null, 2))}</pre>
+      </section>`;
+    return;
+  }
+
+  $('content').innerHTML = `
+    <div class="grid">${getCards(d).join('')}</div>
+    ${overview(d)}
+    
+    <details class="raw-drawer">
+      <summary>
+        <span>🧾 Raw JSON Response (${tab})</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span style="font-size:12px; color:var(--txt-muted); font-weight:normal;">HTTP ${esc(m?.status)} · ${esc(m?.ms)} ms</span>
+          <button type="button" id="copyBtn" style="padding:4px 10px; font-size:12px;">Copy JSON</button>
+          <button type="button" id="dlBtn" style="padding:4px 10px; font-size:12px;">Download</button>
+        </div>
+      </summary>
+      <div class="raw-content">
+        <pre class="raw">${esc(JSON.stringify(d, null, 2))}</pre>
+      </div>
+    </details>`;
+
+  $('copyBtn').onclick = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(JSON.stringify(d, null, 2));
+    showToast('JSON copied to clipboard!');
+  };
+
+  $('dlBtn').onclick = (e) => {
+    e.stopPropagation();
+    const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `squeek-${tab}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.json`;
+    a.click();
+    showToast('JSON file saved!');
+  };
+}
+
+// Fetch endpoint helper
+async function load(path, key = tab) {
+  $('notice').textContent = `Fetching ${path} ...`;
+  const started = performance.now();
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 12000);
+    const r = await fetch(BASE + path, {
+      signal: ctrl.signal,
+      cache: 'no-store',
+      headers: { 'Accept': 'application/json' }
+    });
+    clearTimeout(timeout);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+
+    payloads.set(key, d);
+    meta.set(key, { status: r.status, ms: Math.round(performance.now() - started) });
+
+    $('notice').textContent = `${path} • HTTP ${r.status} (${meta.get(key).ms} ms)`;
+    $('connection').innerHTML = '<i class="dot ok"></i> API Connected';
+    $('lastUpdated').textContent = `Last polled: ${new Date().toLocaleTimeString()}`;
+
+    // Record RPM sample for live chart
+    if (key === 'live') {
+      const rpm = typeof d.measurement?.rpmMilli === 'number' ? d.measurement.rpmMilli / 1000 : 0;
+      history.push({ t: Date.now(), y: rpm });
+      if (history.length > 30) history.shift();
+    }
+
+    render();
+  } catch (err) {
+    $('connection').innerHTML = '<i class="dot bad"></i> Disconnected';
+    $('notice').innerHTML = `<span style="color:var(--red);">Failed to fetch ${path}: ${esc(err.message)}</span>`;
+    if (!payloads.has(key)) {
+      $('content').innerHTML = `<section class="box" style="text-align:center; padding:32px; color:var(--red);">Could not connect to Squeekchain endpoint.</section>`;
+    }
+  }
+}
+
+// Tab navigation
+function show(t) {
+  tab = t;
+  document.querySelectorAll('[data-tab]').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  if (tab === 'lookup') {
+    renderLookup();
+  } else {
+    render();
+    load(endpoints[tab].path);
+  }
+}
+
+// Lookup tab with 1-click test chips
+function renderLookup() {
+  $('content').innerHTML = `
+    <section class="box">
+      <div class="box-header">
+        <h2>🔎 Account, Contract & Token Explorer</h2>
+      </div>
+      <p style="color:var(--txt-muted); margin-top:0;">Inspect any Ethereum address or numeric Squeek NFT ID directly from Squeekchain Sepolia contracts.</p>
+      
+      <!-- Address Section -->
+      <div style="margin-bottom: 20px;">
+        <label style="font-weight:700; font-size:13px; display:block; margin-bottom:6px;">Ethereum Address (0x...)</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <input id="walletInput" style="flex:1; min-width:260px;" placeholder="0x..." value="0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44">
+          <button id="lookupAccountBtn">Lookup Account</button>
+          <button id="lookupActivityBtn">Account Activity</button>
+        </div>
+        <div class="presets-wrap">
+          <span style="font-size:12px; color:var(--txt-muted); align-self:center;">Presets:</span>
+          <button type="button" class="chip" data-addr="0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44">Core Contract</button>
+          <button type="button" class="chip" data-addr="0x5501e1fa81be1c3f49225fa7668da0245d07db60">SQK Token</button>
+          <button type="button" class="chip" data-addr="0x5f6ba50f448b84e09f5ee324a6402b033ba70e28">Gacha Vault</button>
+        </div>
+      </div>
+
+      <!-- Token ID Section -->
+      <div>
+        <label style="font-weight:700; font-size:13px; display:block; margin-bottom:6px;">Squeek NFT Token ID</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <input id="tokenInput" style="width:200px;" placeholder="e.g. 1" value="1">
+          <button id="lookupTokenBtn">Lookup Squeek NFT</button>
+        </div>
+        <div class="presets-wrap">
+          <span style="font-size:12px; color:var(--txt-muted); align-self:center;">Presets:</span>
+          <button type="button" class="chip" data-token="1">Token #1</button>
+          <button type="button" class="chip" data-token="42">Token #42</button>
+          <button type="button" class="chip" data-token="100">Token #100</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="box" style="margin-top:16px;">
+      <div class="box-header">
+        <h2>🧾 Lookup Result</h2>
+        <button id="copyLookupBtn" style="padding:4px 10px; font-size:12px;">Copy Result</button>
+      </div>
+      <pre class="raw" id="lookupResult">Choose a preset above or enter an address/token and click Lookup.</pre>
+    </section>`;
+
+  // Preset chip event handlers
+  document.querySelectorAll('[data-addr]').forEach(chip => {
+    chip.onclick = () => {
+      $('walletInput').value = chip.dataset.addr;
+      executeLookup('/accounts/' + chip.dataset.addr);
+    };
+  });
+
+  document.querySelectorAll('[data-token]').forEach(chip => {
+    chip.onclick = () => {
+      $('tokenInput').value = chip.dataset.token;
+      executeLookup('/squeeks/' + chip.dataset.token);
+    };
+  });
+
+  async function executeLookup(path) {
+    const el = $('lookupResult');
+    el.textContent = `Fetching ${path} ...`;
+    try {
+      const res = await fetch(BASE + path);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      el.textContent = JSON.stringify(json, null, 2);
+    } catch (e) {
+      el.textContent = `Error querying ${path}: ${e.message}`;
+    }
+  }
+
+  $('lookupAccountBtn').onclick = () => {
+    const addr = $('walletInput').value.trim();
+    if (/^0x[a-fA-F0-9]{40}$/.test(addr)) executeLookup('/accounts/' + addr);
+    else alert('Please enter a valid 42-character Ethereum address (0x...)');
+  };
+
+  $('lookupActivityBtn').onclick = () => {
+    const addr = $('walletInput').value.trim();
+    if (/^0x[a-fA-F0-9]{40}$/.test(addr)) executeLookup('/accounts/' + addr + '/activity');
+    else alert('Please enter a valid 42-character Ethereum address (0x...)');
+  };
+
+  $('lookupTokenBtn').onclick = () => {
+    const id = $('tokenInput').value.trim();
+    if (/^\d+$/.test(id)) executeLookup('/squeeks/' + id);
+    else alert('Please enter a valid numeric token ID');
+  };
+
+  $('copyLookupBtn').onclick = () => {
+    navigator.clipboard.writeText($('lookupResult').textContent);
+    showToast('Result copied to clipboard!');
+  };
+}
+
+// Initialize Tabs
+$('tabs').innerHTML = Object.entries(endpoints).map(([k, v]) => `
+  <button data-tab="${k}" title="${esc(v.desc)}">${v.name}</button>
+`).join('');
+
+$('tabs').onclick = (e) => {
+  const btn = e.target.closest('[data-tab]');
+  if (btn) show(btn.dataset.tab);
+};
+
+// Manual Refresh
+$('refresh').onclick = () => {
+  if (tab === 'lookup') renderLookup();
+  else load(endpoints[tab].path);
+};
+
+// Auto Poller Timer
+function setupAutoRefresh() {
+  if (autoInterval) clearInterval(autoInterval);
+  countdown = 10;
+  
+  autoInterval = setInterval(() => {
+    if (!$('auto').checked) return;
+    countdown--;
+    if (countdown <= 0) {
+      countdown = 10;
+      if (document.visibilityState === 'visible') {
+        if (tab === 'live') load(endpoints.live.path);
+      }
+    }
+    const cEl = $('countdownPill');
+    if (cEl) cEl.textContent = `⏱ Next: ${countdown}s`;
+  }, 1000);
+}
+
+$('auto').onchange = () => {
+  if ($('auto').checked) {
+    countdown = 10;
+    setupAutoRefresh();
+  } else {
+    const cEl = $('countdownPill');
+    if (cEl) cEl.textContent = '⏱ Paused';
+  }
+};
+
+// Boot
+setupAutoRefresh();
+show('live');
+</script>
+
+</body>
+</html>

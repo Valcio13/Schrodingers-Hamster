@@ -1,0 +1,1233 @@
+@import "tailwindcss";
+
+@theme {
+  --font-fredoka: 'Fredoka', cursive, sans-serif;
+  --font-pixel: 'Pixelify Sans', monospace, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-gentle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes hamsterHop {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes hamsterFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(2deg);
+  }
+}
+
+@keyframes hamsterSpark {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px #facc15);
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 10px #facc15) brightness(1.2);
+    transform: scale(1.05) rotate(-1deg);
+  }
+}
+
+@keyframes hamsterGlitch {
+  0%, 85%, 100% {
+    transform: translate(0, 0);
+    filter: drop-shadow(0 0 4px #ec4899);
+  }
+  88% {
+    transform: translate(-2px, 1px);
+    filter: drop-shadow(-2px 0 6px #06b6d4);
+  }
+  92% {
+    transform: translate(2px, -1px);
+    filter: drop-shadow(2px 0 6px #ec4899);
+  }
+  96% {
+    transform: translate(-1px, -1px);
+  }
+}
+
+@keyframes hamsterAura {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px #a855f7);
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 14px #38bdf8);
+    transform: scale(1.03);
+  }
+}
+
+@keyframes hamsterParadox {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px #a3e635) hue-rotate(0deg);
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 16px #c084fc) hue-rotate(90deg);
+    transform: translateY(-4px) scale(1.04);
+  }
+}
+
+@keyframes eggWobble {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-6deg) scale(1.02);
+  }
+  50% {
+    transform: rotate(0deg) scale(0.98);
+  }
+  75% {
+    transform: rotate(6deg) scale(1.02);
+  }
+}
+
+@keyframes eggHatch {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 10px #a855f7);
+  }
+  40% {
+    transform: scale(1.15) rotate(-3deg);
+    filter: drop-shadow(0 0 25px #ec4899) brightness(1.4);
+  }
+  70% {
+    transform: scale(0.95) rotate(3deg);
+    filter: drop-shadow(0 0 35px #38bdf8) brightness(1.8);
+  }
+  100% {
+    transform: scale(1.2);
+    filter: drop-shadow(0 0 50px #ffffff) brightness(2.2);
+  }
+}
+
+@keyframes conduitPulse {
+  0%, 100% {
+    opacity: 0.6;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.4);
+  }
+}
+
+@keyframes bulbFlicker {
+  0%, 100% {
+    opacity: 0.95;
+    filter: drop-shadow(0 4px 15px rgba(255, 179, 71, 0.4));
+  }
+  42% {
+    opacity: 0.85;
+  }
+  43% {
+    opacity: 0.6;
+  }
+  44% {
+    opacity: 0.95;
+  }
+  80% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes bubbleFloat {
+  0% {
+    transform: translateY(10px) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-20px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes kineticWheelSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.anim-wheel-spin {
+  animation-name: kineticWheelSpin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+/* Quantum Chamber Porthole Vortex & Singularity Core */
+@keyframes quantumVortexSwirl {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes quantumCorePulse {
+  0%, 100% {
+    transform: scale(0.98);
+    opacity: 0.95;
+    filter: drop-shadow(0 0 3px rgba(192, 132, 252, 0.6));
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(232, 121, 249, 0.9)) drop-shadow(0 0 14px rgba(56, 189, 248, 0.8));
+  }
+}
+
+@keyframes quantumCoreActive {
+  0%, 100% {
+    transform: scale(0.92);
+    filter: drop-shadow(0 0 6px #a855f7);
+  }
+  50% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 16px #22d3ee) drop-shadow(0 0 24px #e879f9);
+  }
+}
+
+@keyframes quantumCoreReady {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px #a3e635) drop-shadow(0 0 18px #34d399);
+  }
+  50% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 18px #a3e635) drop-shadow(0 0 32px #4ade80);
+  }
+}
+
+.anim-vortex-idle {
+  animation: quantumVortexSwirl 18s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.anim-vortex-active {
+  animation: quantumVortexSwirl 4s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.anim-core-pulse {
+  animation: quantumCorePulse 3s ease-in-out infinite;
+  transform-origin: 50% 50%;
+  will-change: transform, filter;
+}
+
+.anim-core-active {
+  animation: quantumCoreActive 0.9s ease-in-out infinite;
+  transform-origin: 50% 50%;
+  will-change: transform, filter;
+}
+
+.anim-core-ready {
+  animation: quantumCoreReady 1.4s ease-in-out infinite;
+  transform-origin: 50% 50%;
+  will-change: transform, filter;
+}
+
+.anim-egg-wobble {
+  animation: eggWobble 2.2s ease-in-out infinite;
+}
+
+.anim-egg-hatch {
+  animation: eggHatch 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.anim-conduit-pulse {
+  animation: conduitPulse 1.8s ease-in-out infinite;
+}
+
+.anim-bulb-flicker {
+  animation: bulbFlicker 6s infinite;
+}
+
+.anim-bubble {
+  animation: bubbleFloat 2s ease-in infinite;
+}
+
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* CRT scanline overlay utility */
+.crt-scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.04),
+    rgba(0, 255, 0, 0.02),
+    rgba(0, 0, 255, 0.04)
+  );
+  background-size: 100% 3px, 6px 100%;
+}
+
+.anim-hamster-hop {
+  animation: hamsterHop 1.2s ease-in-out infinite;
+}
+
+.anim-hamster-float {
+  animation: hamsterFloat 2.6s ease-in-out infinite;
+}
+
+.anim-hamster-spark {
+  animation: hamsterSpark 1s ease-in-out infinite;
+}
+
+.anim-hamster-glitch {
+  animation: hamsterGlitch 1.5s steps(2, end) infinite;
+}
+
+.anim-hamster-aura {
+  animation: hamsterAura 2s ease-in-out infinite;
+}
+
+.anim-hamster-paradox {
+  animation: hamsterParadox 3s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b0e17;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #232d44;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3e4f75;
+}
+
+/* ========================================================================= */
+/* Research Desk Chemistry Glassware Bubble Keyframes                       */
+/* ========================================================================= */
+@keyframes labBubbleRise1 {
+  0% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(2px, -35px) scale(1);
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-1px, -75px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes labBubbleRise2 {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(-3px, -30px) scale(0.9);
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(1px, -65px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes labBubbleRise3 {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(3px, -40px) scale(1);
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(0px, -80px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes labBubbleNeck {
+  0% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  60% {
+    transform: translate(1px, -55px) scale(1.1);
+    opacity: 1;
+  }
+  90% {
+    transform: translate(-1px, -95px) scale(1.3);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(0px, -105px) scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes labVaporBob {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    opacity: 0.85;
+    filter: drop-shadow(0 0 3px #22d3ee);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.1);
+    opacity: 1;
+    filter: drop-shadow(0 0 6px #67e8f9);
+  }
+}
+
+@keyframes labAmberDrift1 {
+  0%, 100% {
+    transform: translateY(0px) scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-12px) scale(1.1);
+    opacity: 0.95;
+    filter: drop-shadow(0 0 3px #fde047);
+  }
+}
+
+@keyframes labAmberDrift2 {
+  0%, 100% {
+    transform: translateY(0px) scale(1.1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateY(-9px) scale(0.85);
+    opacity: 0.6;
+  }
+}
+
+@keyframes labAmberDrift3 {
+  0%, 100% {
+    transform: translateY(0px) scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-15px) scale(1.05);
+    opacity: 0.9;
+    filter: drop-shadow(0 0 4px #fef08a);
+  }
+}
+
+.animate-lab-bubble-1 {
+  animation: labBubbleRise1 2.2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+}
+
+.animate-lab-bubble-2 {
+  animation: labBubbleRise2 2.7s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 0.7s;
+}
+
+.animate-lab-bubble-3 {
+  animation: labBubbleRise3 2.5s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 1.3s;
+}
+
+.animate-lab-bubble-4 {
+  animation: labBubbleNeck 3.1s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 0.4s;
+}
+
+.animate-lab-vapor {
+  animation: labVaporBob 2s ease-in-out infinite;
+}
+
+.animate-lab-amber-1 {
+  animation: labAmberDrift1 3s ease-in-out infinite;
+}
+
+.animate-lab-amber-2 {
+  animation: labAmberDrift2 3.4s ease-in-out infinite 1s;
+}
+
+.animate-lab-amber-3 {
+  animation: labAmberDrift3 2.8s ease-in-out infinite 1.8s;
+}
+
+/* ========================================================================= */
+/* Vintage Edison Bulb & Banker's Lamp Atmospheric Lighting Keyframes        */
+/* ========================================================================= */
+@keyframes bulbFlicker1 {
+  0%, 100% {
+    opacity: 0.88;
+    filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.4));
+  }
+  38% {
+    opacity: 0.92;
+  }
+  39% {
+    opacity: 0.62;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.25));
+  }
+  40% {
+    opacity: 0.98;
+    filter: drop-shadow(0 0 16px rgba(254, 240, 138, 0.65));
+  }
+  41% {
+    opacity: 0.76;
+  }
+  42% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes bulbFlicker2 {
+  0%, 100% {
+    opacity: 0.92;
+    filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.5));
+  }
+  22% {
+    opacity: 0.72;
+    filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.25));
+  }
+  23% {
+    opacity: 0.95;
+  }
+  67% {
+    opacity: 0.9;
+  }
+  68% {
+    opacity: 0.52;
+    filter: drop-shadow(0 0 3px rgba(217, 119, 6, 0.2));
+  }
+  69% {
+    opacity: 1;
+    filter: drop-shadow(0 0 20px rgba(254, 240, 138, 0.75));
+  }
+  71% {
+    opacity: 0.8;
+  }
+  73% {
+    opacity: 0.92;
+  }
+}
+
+@keyframes bulbFlicker3 {
+  0%, 100% {
+    opacity: 0.86;
+    filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.4));
+  }
+  50% {
+    opacity: 0.92;
+  }
+  51% {
+    opacity: 0.64;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.25));
+  }
+  52% {
+    opacity: 0.96;
+    filter: drop-shadow(0 0 15px rgba(254, 240, 138, 0.6));
+  }
+  91% {
+    opacity: 0.84;
+  }
+}
+
+@keyframes bulbFlicker4 {
+  0%, 100% {
+    opacity: 0.88;
+    filter: drop-shadow(0 0 11px rgba(251, 191, 36, 0.42));
+  }
+  14% {
+    opacity: 0.92;
+  }
+  15% {
+    opacity: 0.58;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.2));
+  }
+  16% {
+    opacity: 0.98;
+    filter: drop-shadow(0 0 16px rgba(254, 240, 138, 0.65));
+  }
+  60% {
+    opacity: 0.74;
+  }
+  61% {
+    opacity: 0.9;
+  }
+  82% {
+    opacity: 0.86;
+  }
+}
+
+@keyframes lampShimmer {
+  0%, 100% {
+    opacity: 0.85;
+    transform: translate(-50%, -25%) scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate(-50%, -25%) scale(1.04);
+  }
+}
+
+.animate-bulb-flicker-1 {
+  animation: bulbFlicker1 4.4s ease-in-out infinite;
+}
+
+.animate-bulb-flicker-2 {
+  animation: bulbFlicker2 3.6s ease-in-out infinite 0.9s;
+}
+
+.animate-bulb-flicker-3 {
+  animation: bulbFlicker3 5.1s ease-in-out infinite 2.1s;
+}
+
+.animate-bulb-flicker-4 {
+  animation: bulbFlicker4 4.7s ease-in-out infinite 1.4s;
+}
+
+.animate-lamp-shimmer {
+  animation: lampShimmer 3s ease-in-out infinite;
+}
+
+/* ========================================================================= */
+/* Quantum Incubator & Genetics Apparatus Animation Keyframes               */
+/* ========================================================================= */
+@keyframes tubeFluidShimmer {
+  0%, 100% {
+    opacity: 0.85;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.15) drop-shadow(0 0 10px rgba(34, 211, 238, 0.35));
+  }
+}
+
+@keyframes tubeBubbleAscend1 {
+  0% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(3px, -80px) scale(1);
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-2px, -170px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes tubeBubbleAscend2 {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(-4px, -70px) scale(0.9);
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(2px, -160px) scale(1.15);
+    opacity: 0;
+  }
+}
+
+@keyframes tubeBubbleAscend3 {
+  0% {
+    transform: translate(0, 0) scale(0.7);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(2px, -90px) scale(1.1);
+    opacity: 0.95;
+  }
+  90% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(-1px, -185px) scale(1.3);
+    opacity: 0;
+  }
+}
+
+@keyframes tubeBubbleAscend4 {
+  0% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(-2px, -65px) scale(1);
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(3px, -150px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes tubeBubbleAscend5 {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.95;
+  }
+  50% {
+    transform: translate(1px, -75px) scale(1);
+    opacity: 0.85;
+  }
+  85% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(-2px, -165px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes dnaBobGold {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateY(-8px) scale(1.05);
+    opacity: 0.95;
+  }
+}
+
+@keyframes dnaBobCyan {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(7px) scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes satelliteGlowGold {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.95;
+    filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.4));
+  }
+}
+
+@keyframes satelliteGlowPurple {
+  0%, 100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.45));
+  }
+}
+
+@keyframes satelliteParticle {
+  0% {
+    transform: translateY(0px) scale(0.7);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-60px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes machineryLedPulse {
+  0%, 100% {
+    opacity: 0.6;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.3);
+  }
+}
+
+.animate-tube-fluid-shimmer {
+  animation: tubeFluidShimmer 3.8s ease-in-out infinite;
+}
+
+.animate-tube-bubble-1 {
+  animation: tubeBubbleAscend1 3.5s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+}
+
+.animate-tube-bubble-2 {
+  animation: tubeBubbleAscend2 4.1s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 1.1s;
+}
+
+.animate-tube-bubble-3 {
+  animation: tubeBubbleAscend3 3.8s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 0.5s;
+}
+
+.animate-tube-bubble-4 {
+  animation: tubeBubbleAscend4 4.5s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 2.2s;
+}
+
+.animate-tube-bubble-5 {
+  animation: tubeBubbleAscend5 3.9s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 1.7s;
+}
+
+.animate-dna-bob-gold {
+  animation: dnaBobGold 4s ease-in-out infinite;
+}
+
+.animate-dna-bob-cyan {
+  animation: dnaBobCyan 4.6s ease-in-out infinite 0.6s;
+}
+
+.animate-satellite-glow-gold {
+  animation: satelliteGlowGold 3.4s ease-in-out infinite;
+}
+
+.animate-satellite-glow-purple {
+  animation: satelliteGlowPurple 3.2s ease-in-out infinite 0.8s;
+}
+
+.animate-satellite-particle-gold {
+  animation: satelliteParticle 2.8s ease-in-out infinite;
+}
+
+.animate-satellite-particle-purple {
+  animation: satelliteParticle 3.1s ease-in-out infinite 1.2s;
+}
+
+.animate-machinery-led-1 {
+  animation: machineryLedPulse 1.6s ease-in-out infinite;
+}
+
+.animate-machinery-led-2 {
+  animation: machineryLedPulse 1.6s ease-in-out infinite 0.5s;
+}
+
+.animate-machinery-led-3 {
+  animation: machineryLedPulse 1.6s ease-in-out infinite 1s;
+}
+
+/* ========================================================================= */
+/* INTERACTION FEEDBACK: SQUISH, RIPPLE, PARTICLES & HUD RETICLES             */
+/* ========================================================================= */
+@keyframes squishBounce {
+  0% { transform: scale(1, 1) translateY(0); }
+  25% { transform: scale(1.22, 0.78) translateY(3px); }
+  50% { transform: scale(0.88, 1.15) translateY(-8px); }
+  75% { transform: scale(1.04, 0.96) translateY(-1px); }
+  100% { transform: scale(1, 1) translateY(0); }
+}
+
+@keyframes floatParticle {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.1);
+  }
+  75% {
+    opacity: 0.9;
+    transform: translateY(-24px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-38px) scale(0.8);
+  }
+}
+
+@keyframes shockwaveExpand {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.8);
+    opacity: 0;
+  }
+}
+
+@keyframes hudReticlePulse {
+  0%, 100% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 2px currentColor);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+}
+
+.anim-squish-bounce {
+  animation: squishBounce 0.42s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.anim-float-particle {
+  animation: floatParticle 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.anim-shockwave {
+  animation: shockwaveExpand 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
+.anim-hud-pulse {
+  animation: hudReticlePulse 1.8s ease-in-out infinite;
+}
+
+/* ========================================================================= */
+/* PHASE ONE & TWO: DISCOVERY COLLAPSE, EGG CRACKING & RARITY GLEAMS         */
+/* ========================================================================= */
+@keyframes silhouetteFlicker {
+  0%, 100% {
+    filter: brightness(0) invert(0.2) drop-shadow(0 0 6px rgba(168, 85, 247, 0.5));
+    opacity: 0.5;
+    transform: scale(0.96);
+  }
+  50% {
+    filter: brightness(0) invert(0.85) drop-shadow(0 0 20px rgba(192, 132, 252, 0.95));
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes eggWobbleCrack {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  15% { transform: rotate(-7deg) scale(1.05); }
+  30% { transform: rotate(7deg) scale(1.08); }
+  50% { transform: rotate(-5deg) scale(1.12); filter: drop-shadow(0 0 10px #f472b6); }
+  70% { transform: rotate(5deg) scale(1.16); filter: drop-shadow(0 0 20px #38bdf8); }
+  85% { transform: rotate(-3deg) scale(1.2); filter: brightness(1.6) drop-shadow(0 0 30px #fff); }
+}
+
+@keyframes eggShellExplode {
+  0% { transform: scale(1.2); opacity: 1; filter: brightness(2) drop-shadow(0 0 30px #fff); }
+  100% { transform: scale(2.2); opacity: 0; filter: brightness(3.5); }
+}
+
+@keyframes legendaryGleam {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.4), inset 0 0 15px rgba(245, 158, 11, 0.2);
+    border-color: rgba(251, 191, 36, 0.85);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.85), inset 0 0 25px rgba(251, 191, 36, 0.4);
+    border-color: #fef08a;
+  }
+}
+
+@keyframes mythicCosmicGlow {
+  0% {
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.6), inset 0 0 15px rgba(168, 85, 247, 0.3);
+    border-color: #f472b6;
+  }
+  33% {
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.75), inset 0 0 20px rgba(56, 189, 248, 0.4);
+    border-color: #c084fc;
+  }
+  66% {
+    box-shadow: 0 0 30px rgba(56, 189, 248, 0.8), inset 0 0 20px rgba(236, 72, 153, 0.4);
+    border-color: #38bdf8;
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.6), inset 0 0 15px rgba(168, 85, 247, 0.3);
+    border-color: #f472b6;
+  }
+}
+
+@keyframes quantumMissingGlitch {
+  0%, 100% {
+    opacity: 0.55;
+    filter: grayscale(0.85) drop-shadow(0 0 6px #06b6d4);
+    transform: translate(0, 0);
+  }
+  25% {
+    opacity: 0.3;
+    filter: grayscale(1) invert(0.3) drop-shadow(0 0 10px #ec4899);
+    transform: translate(-3px, 1px);
+  }
+  50% {
+    opacity: 0.65;
+    filter: hue-rotate(120deg) blur(0.5px);
+    transform: translate(1px, -2px);
+  }
+  75% {
+    opacity: 0.4;
+    filter: grayscale(0.6) invert(0.1);
+    transform: translate(3px, 1px);
+  }
+}
+
+.anim-silhouette-reveal {
+  animation: silhouetteFlicker 1.4s ease-in-out infinite;
+}
+
+.anim-egg-wobble {
+  animation: eggWobbleCrack 1.8s ease-in-out infinite;
+}
+
+.anim-egg-explode {
+  animation: eggShellExplode 0.5s ease-out forwards;
+}
+
+.anim-legendary-gleam {
+  animation: legendaryGleam 2.2s ease-in-out infinite;
+}
+
+.anim-mythic-cosmic {
+  animation: mythicCosmicGlow 3s linear infinite;
+}
+
+.anim-missing-glitch {
+  animation: quantumMissingGlitch 2.4s ease-in-out infinite;
+}
+
+
+
+/* ========================================================================= */
+/* KINETIC DYNAMO & BATTERY MACHINE MECHANICAL ANIMATIONS                    */
+/* ========================================================================= */
+@keyframes gearSpinCw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gearSpinCcw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.anim-gear-spin-cw {
+  animation: gearSpinCw 1.2s linear infinite;
+  will-change: transform;
+}
+
+.anim-gear-spin-ccw {
+  animation: gearSpinCcw 1.2s linear infinite;
+  will-change: transform;
+}
+
+@keyframes inductionWaveUp {
+  0% {
+    transform: translateY(110%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-110%);
+    opacity: 0;
+  }
+}
+
+@keyframes inductionWaveDown {
+  0% {
+    transform: translateY(-110%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(110%);
+    opacity: 0;
+  }
+}
+
+.anim-induction-wave {
+  animation: inductionWaveUp 1.2s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.anim-induction-wave-down {
+  animation: inductionWaveDown 1.4s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes cableFlow {
+  0% {
+    stroke-dashoffset: 40;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.anim-cable-flow {
+  animation: cableFlow 0.8s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+@keyframes needleJitter {
+  0%, 100% {
+    transform: rotate(var(--base-angle, 0deg));
+  }
+  20% {
+    transform: rotate(calc(var(--base-angle, 0deg) - 1.2deg));
+  }
+  40% {
+    transform: rotate(calc(var(--base-angle, 0deg) + 1.4deg));
+  }
+  60% {
+    transform: rotate(calc(var(--base-angle, 0deg) - 0.8deg));
+  }
+  80% {
+    transform: rotate(calc(var(--base-angle, 0deg) + 1.1deg));
+  }
+}
+
+.anim-needle-jitter {
+  animation: needleJitter 0.12s linear infinite;
+  will-change: transform;
+}
+
+/* Squeektoshi Wheel Gallop Animation */
+@keyframes hamsterWheelRun {
+  0% {
+    transform: translateY(0px) rotate(0deg) scale(1, 1);
+  }
+  25% {
+    transform: translateY(-2.5px) rotate(-1.5deg) scale(0.99, 1.01);
+  }
+  50% {
+    transform: translateY(0px) rotate(0deg) scale(1.02, 0.98);
+  }
+  75% {
+    transform: translateY(-2px) rotate(-1deg) scale(0.99, 1.01);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg) scale(1, 1);
+  }
+}
+
+.anim-hamster-wheel-run {
+  animation: hamsterWheelRun 0.35s ease-in-out infinite;
+  transform-origin: 50% 90%;
+  will-change: transform;
+}
