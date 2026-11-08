@@ -57,9 +57,21 @@ export const WalletConnectButton: React.FC<WalletConnectButtonProps> = ({ onSess
     if (provider && provider.on) {
       const handleAccountsChanged = async (accounts: string[]) => {
         if (!accounts || accounts.length === 0) {
+          sessionStorage.removeItem('squeek_session_token');
+          const unauthSession = { authenticated: false, address: null, playerId: null, sessionToken: null };
           setWallet({ connected: false, address: null, chainId: null, isSepolia: false });
-          setSession({ authenticated: false, address: null, playerId: null, sessionToken: null });
+          setSession(unauthSession);
+          if (onSessionChange) onSessionChange(unauthSession);
         } else {
+          // If wallet account switched, revoke previous session to ensure fresh SIWE auth
+          const newAddress = accounts[0].toLowerCase();
+          const token = sessionStorage.getItem('squeek_session_token');
+          if (token) {
+            sessionStorage.removeItem('squeek_session_token');
+            const unauthSession = { authenticated: false, address: null, playerId: null, sessionToken: null };
+            setSession(unauthSession);
+            if (onSessionChange) onSessionChange(unauthSession);
+          }
           const updated = await checkWalletConnection();
           setWallet(updated);
         }

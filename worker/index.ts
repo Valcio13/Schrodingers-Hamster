@@ -78,6 +78,41 @@ function isWalletAllowlistedForBeta(env: any, walletAddress: string): { allowed:
   return { allowed: isAllowed, isRestrictedBeta: true };
 }
 
+/**
+ * Developer Allowlist Parser & Validator.
+ * Reads DEV_ALLOWED_WALLETS environment variable, normalizes addresses to lowercase,
+ * strictly filters out malformed addresses (must match 0x followed by 40 hex chars),
+ * and defaults to empty array (no access) if missing or empty.
+ */
+export function parseDevAllowedWallets(env: any): string[] {
+  const rawList = ((env as any)?.DEV_ALLOWED_WALLETS || '') as string;
+  if (!rawList || typeof rawList !== 'string') {
+    return [];
+  }
+  return rawList
+    .split(',')
+    .map(addr => addr.trim().toLowerCase())
+    .filter(addr => /^0x[a-f0-9]{40}$/.test(addr));
+}
+
+/**
+ * Checks if a given wallet address is authorized as a developer.
+ * Normalizes the candidate address, rejects malformed values,
+ * and checks membership against DEV_ALLOWED_WALLETS.
+ * Never returns the allowlist or sensitive configuration.
+ */
+export function isDeveloperWallet(walletAddress: string | null | undefined, env: any): boolean {
+  if (!walletAddress || typeof walletAddress !== 'string') {
+    return false;
+  }
+  const normalized = walletAddress.trim().toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(normalized)) {
+    return false;
+  }
+  const allowed = parseDevAllowedWallets(env);
+  return allowed.includes(normalized);
+}
+
 // Web3 Authentication & NFT state stores
 const authNonceStore = new Map<string, { nonce: string; createdAt: number; expiresAt: number; consumed: boolean }>();
 const siweSessionStore = new Map<string, { sessionToken: string; walletAddress: string; playerId: string; expiresAt: number }>();
@@ -864,6 +899,19 @@ export default {
         }
       }
 
+      // Developer Authorization Status Check (Minimal, unexposed, fresh authorization)
+      if (pathname === '/api/dev/access' && request.method === 'GET') {
+        const isAuthorized = !!(sessionWallet && isDeveloperWallet(sessionWallet, env));
+        return new Response(JSON.stringify({
+          authorized: isAuthorized
+        }), {
+          headers: {
+            ...headers,
+            'Cache-Control': 'no-store, no-cache, must-revalidate'
+          }
+        });
+      }
+
       // Player identity from session or client header (guest support preserved)
       const playerId = sessionPlayerId || request.headers.get('X-Player-ID') || url.searchParams.get('playerId') || 'local-researcher';
       const now = Date.now();
@@ -1523,6 +1571,53 @@ export default {
         const body = await request.json().catch(() => ({})) as any;
         const telemetry = await fetchSqueekchainTelemetry();
 
+        const isSimulation = (
+          typeof body.simulateUnits === 'number' ||
+          typeof body.simulateRpm === 'number' ||
+          typeof body.setBatteryCapacity === 'number' ||
+          typeof body.setBatteryEnergy === 'number' ||
+          typeof body.setBreedingCharges === 'number' ||
+          typeof body.setBreedingChargeProgress === 'number' ||
+          typeof body.addBreedingCharges === 'number'
+        );
+
+        const isMockBypass = Boolean((env as any)?.__ALLOW_MOCK_STORAGE && !(env as any)?.__STRICT_DEV_SECURITY__ && !(env as any)?.DEV_ALLOWED_WALLETS);
+
+        if (isSimulation) {
+          if (!isMockBypass) {
+            if (!sessionWallet) {
+              return new Response(JSON.stringify({
+                error: 'UNAUTHORIZED_SIMULATION',
+                message: 'Authentication required. A valid SIWE session is required for simulation actions.'
+              }), { status: 403, headers });
+            }
+
+            if (!isDeveloperWallet(sessionWallet, env)) {
+              return new Response(JSON.stringify({
+                error: 'FORBIDDEN_SIMULATION',
+                message: 'Connected wallet address is not authorized in DEV_ALLOWED_WALLETS.'
+              }), { status: 403, headers });
+            }
+
+            // Dedicated developer test account isolation
+            const dedicatedDevPlayerId = `dev_test_${sessionWallet.toLowerCase().slice(2, 10)}`;
+            const requestedPlayerId = request.headers.get('X-Player-ID') || url.searchParams.get('playerId');
+            if (requestedPlayerId && requestedPlayerId !== dedicatedDevPlayerId && requestedPlayerId !== sessionPlayerId) {
+              return new Response(JSON.stringify({
+                error: 'FORBIDDEN_SIMULATION_TARGET',
+                message: 'Simulation actions cannot target arbitrary player accounts.'
+              }), { status: 403, headers });
+            }
+
+            // Isolate mutations to dedicated developer test account
+            player = await loadPlayerState(env.DB, dedicatedDevPlayerId);
+            if (!player) {
+              player = createInitialPlayerState(dedicatedDevPlayerId, telemetry.settledCumulativeWork);
+            }
+            (player as any).isDevAccount = true;
+          }
+        }
+
         // 3a. Passive Regeneration (1 energy per minute, offline-capable)
         const passiveEnergyEarned = applyPassiveRegeneration(player, now);
 
@@ -1583,6 +1678,11 @@ export default {
         }
         if (typeof body.addBreedingCharges === 'number') {
           player.breedingCharges = Math.max(0, Math.min(MAX_BREEDING_CHARGES, (player.breedingCharges || 0) + Math.floor(body.addBreedingCharges)));
+        }
+
+        if (isSimulation && !isMockBypass) {
+          (player as any).isDevAccount = true;
+          (player as any).hasSimulatedWork = true;
         }
 
         await savePlayerState(env.DB, player);
@@ -2158,6 +2258,39 @@ export default {
       // 18. Quantum Fate: Force Test Trigger (deterministic testing)
       if (pathname === '/api/fate/trigger-test' && request.method === 'POST') {
         const body = await request.json().catch(() => ({})) as any;
+        const isMockBypass = (env as any)?.__ALLOW_MOCK_STORAGE && !(env as any)?.__STRICT_DEV_SECURITY__ && !(env as any)?.DEV_ALLOWED_WALLETS;
+        if (!isMockBypass) {
+          if (!sessionWallet) {
+            return new Response(JSON.stringify({
+              error: 'UNAUTHORIZED_SIMULATION',
+              message: 'Authentication required. A valid SIWE session is required for test triggers.'
+            }), { status: 403, headers });
+          }
+
+          if (!isDeveloperWallet(sessionWallet, env)) {
+            return new Response(JSON.stringify({
+              error: 'FORBIDDEN_SIMULATION',
+              message: 'Connected wallet address is not authorized in DEV_ALLOWED_WALLETS.'
+            }), { status: 403, headers });
+          }
+
+          const dedicatedDevPlayerId = `dev_test_${sessionWallet.toLowerCase().slice(2, 10)}`;
+          const requestedPlayerId = request.headers.get('X-Player-ID') || url.searchParams.get('playerId');
+          if (requestedPlayerId && requestedPlayerId !== dedicatedDevPlayerId && requestedPlayerId !== sessionPlayerId) {
+            return new Response(JSON.stringify({
+              error: 'FORBIDDEN_SIMULATION_TARGET',
+              message: 'Simulation actions cannot target arbitrary player accounts.'
+            }), { status: 403, headers });
+          }
+
+          player = await loadPlayerState(env.DB, dedicatedDevPlayerId);
+          if (!player) {
+            const telemetry = await fetchSqueekchainTelemetry();
+            player = createInitialPlayerState(dedicatedDevPlayerId, telemetry.settledCumulativeWork);
+          }
+          (player as any).isDevAccount = true;
+        }
+
         const incidents = processQuantumFate(player, now, {
           type: body.type,
           hybridId: body.hybridId
@@ -2181,10 +2314,42 @@ export default {
       // 20. Reset Profile (for development testing)
       if (pathname === '/api/player/reset' && request.method === 'POST') {
         const body = await request.json().catch(() => ({})) as any;
+        let targetPlayerId = playerId;
+        const isMockBypass = (env as any)?.__ALLOW_MOCK_STORAGE && !(env as any)?.__STRICT_DEV_SECURITY__ && !(env as any)?.DEV_ALLOWED_WALLETS;
+        if (!isMockBypass) {
+          if (!sessionWallet) {
+            return new Response(JSON.stringify({
+              error: 'UNAUTHORIZED_SIMULATION',
+              message: 'Authentication required. A valid SIWE session is required for laboratory reset.'
+            }), { status: 403, headers });
+          }
+
+          if (!isDeveloperWallet(sessionWallet, env)) {
+            return new Response(JSON.stringify({
+              error: 'FORBIDDEN_SIMULATION',
+              message: 'Connected wallet address is not authorized in DEV_ALLOWED_WALLETS.'
+            }), { status: 403, headers });
+          }
+
+          const dedicatedDevPlayerId = `dev_test_${sessionWallet.toLowerCase().slice(2, 10)}`;
+          const requestedPlayerId = request.headers.get('X-Player-ID') || url.searchParams.get('playerId');
+          if (requestedPlayerId && requestedPlayerId !== dedicatedDevPlayerId && requestedPlayerId !== sessionPlayerId) {
+            return new Response(JSON.stringify({
+              error: 'FORBIDDEN_SIMULATION_TARGET',
+              message: 'Simulation actions cannot target arbitrary player accounts.'
+            }), { status: 403, headers });
+          }
+
+          targetPlayerId = dedicatedDevPlayerId;
+        }
+
         const telemetry = await fetchSqueekchainTelemetry();
         const prevRevision = player?.saveRevision || 1;
-        const resetPlayer = createInitialPlayerState(playerId, telemetry.settledCumulativeWork);
+        const resetPlayer = createInitialPlayerState(targetPlayerId, telemetry.settledCumulativeWork);
         (resetPlayer as any)._initialSaveRevision = prevRevision;
+        if (targetPlayerId.startsWith('dev_')) {
+          (resetPlayer as any).isDevAccount = true;
+        }
 
         if (typeof body.insight === 'number') {
           resetPlayer.researchInsight = body.insight;
@@ -2259,9 +2424,25 @@ export default {
           return new Response(JSON.stringify({ error: 'Missing specimenId parameter' }), { status: 400, headers });
         }
 
+        // Developer Test Account & Simulated Work Mint Gate Disqualification
+        const targetMintPlayerId = (request.headers.get('X-Player-ID')?.startsWith('dev_') ? request.headers.get('X-Player-ID') : null) || player.id;
+        if (targetMintPlayerId.startsWith('dev_') || (player as any).isDevAccount || (player as any).hasSimulatedWork) {
+          return new Response(JSON.stringify({
+            error: 'SIMULATION_ACCOUNT_DISQUALIFIED',
+            message: 'Developer test accounts and simulated progression are not eligible for NFT minting.'
+          }), { status: 403, headers });
+        }
+
         const hybrid = (player.hybrids || []).find(h => h.id === specimenId);
         if (!hybrid) {
           return new Response(JSON.stringify({ error: 'Specimen not found in player collection' }), { status: 404, headers });
+        }
+
+        if ((hybrid as any).isSimulated) {
+          return new Response(JSON.stringify({
+            error: 'SIMULATION_SPECIMEN_DISQUALIFIED',
+            message: 'Simulated specimens are not eligible for NFT minting.'
+          }), { status: 403, headers });
         }
 
         if (hybrid.existenceStatus === 'deceased' || hybrid.existenceStatus === 'missing') {

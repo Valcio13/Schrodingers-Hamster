@@ -31,6 +31,7 @@ import {
   dismissFateIncidentsApi,
   fetchTelemetry,
   resetLab,
+  checkDevAccess,
   setDevBatteryState,
   setDevActivityRpm,
   setDevBreedingCharges,
@@ -71,6 +72,8 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
+const isLocalDev = Boolean((import.meta as any).env?.DEV);
+
 export const App: React.FC = () => {
   const [player, setPlayer] = useState<PlayerState | null>(null);
   const [telemetry, setTelemetry] = useState<SqueekTelemetry | null>(null);
@@ -85,6 +88,7 @@ export const App: React.FC = () => {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isMuted, setIsMuted] = useState(audio.isMuted);
   const [isDevOpen, setIsDevOpen] = useState(false);
+  const [isDevAuthorized, setIsDevAuthorized] = useState(false);
   const [showPreviewGallery, setShowPreviewGallery] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
@@ -154,7 +158,27 @@ export const App: React.FC = () => {
     loadInitialData();
   }, [loadInitialData]);
 
-  // Global ESC key listener to dismiss open modals
+  // Developer authorization status check
+  const checkDevStatus = useCallback(async () => {
+    try {
+      const res = await checkDevAccess();
+      setIsDevAuthorized(res.authorized);
+      if (!res.authorized && !isLocalDev) {
+        setIsDevOpen(false);
+      }
+    } catch {
+      setIsDevAuthorized(false);
+      if (!isLocalDev) {
+        setIsDevOpen(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    checkDevStatus();
+  }, [checkDevStatus]);
+
+  // Global Keyboard Shortcuts (ESC for modals, Ctrl+Shift+D for Dev Console)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -162,10 +186,25 @@ export const App: React.FC = () => {
         setShowHowToPlay(false);
         setShowBackupModal(false);
       }
+
+      // Ctrl + Shift + D (or Cmd + Shift + D on macOS) developer console toggle
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+        const target = e.target as HTMLElement | null;
+        const tagName = target?.tagName?.toUpperCase();
+        const isEditable = target?.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+        if (isEditable) return;
+
+        e.preventDefault();
+        const canToggle = isLocalDev || isDevAuthorized;
+        if (canToggle) {
+          audio.playClick();
+          setIsDevOpen(prev => !prev);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isDevAuthorized]);
 
   // Periodic Squeekchain Telemetry & Settled Work Sync (Every 8 seconds)
   useEffect(() => {
@@ -647,7 +686,15 @@ export const App: React.FC = () => {
             </button>
 
             {/* Web3 Wallet Connection & SIWE Auth */}
-            <WalletConnectButton onSessionChange={() => {
+            <WalletConnectButton onSessionChange={async (newSession) => {
+              if (!newSession?.authenticated) {
+                setIsDevAuthorized(false);
+                if (!isLocalDev) {
+                  setIsDevOpen(false);
+                }
+              } else {
+                await checkDevStatus();
+              }
               // Re-fetch player state to load linked wallet save
               fetchPlayerState().then(setPlayer).catch(console.error);
             }} />
@@ -664,18 +711,20 @@ export const App: React.FC = () => {
               {isMuted ? <VolumeX className="w-4 h-4 text-slate-500" /> : <Volume2 className="w-4 h-4 text-lime-400" />}
             </button>
 
-            {/* Dev / Simulation Drawer Button */}
-            <button
-              onClick={() => {
-                audio.playClick();
-                setIsDevOpen(true);
-              }}
-              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-400 hover:text-amber-300 transition-colors"
-              data-testid="btn-dev-tools"
-              title="Developer Simulation Tools"
-            >
-              <Wrench className="w-4 h-4" />
-            </button>
+            {/* Dev / Simulation Drawer Button (Local Dev only) */}
+            {isLocalDev && (
+              <button
+                onClick={() => {
+                  audio.playClick();
+                  setIsDevOpen(true);
+                }}
+                className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-400 hover:text-amber-300 transition-colors"
+                data-testid="btn-dev-tools"
+                title="Developer Simulation Tools"
+              >
+                <Wrench className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -1040,18 +1089,20 @@ export const App: React.FC = () => {
                 >
                   Research
                 </button>
-                <button
-                  onClick={() => {
-                    audio.playClick();
-                    setIsDevOpen(true);
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 text-xs font-mono font-bold"
-                  data-testid="btn-dev-tools-incubator"
-                  title="Open Developer Simulation Console"
-                >
-                  <Wrench className="w-3.5 h-3.5" />
-                  <span>Dev Tools</span>
-                </button>
+                {isLocalDev && (
+                  <button
+                    onClick={() => {
+                      audio.playClick();
+                      setIsDevOpen(true);
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 text-xs font-mono font-bold"
+                    data-testid="btn-dev-tools-incubator"
+                    title="Open Developer Simulation Console"
+                  >
+                    <Wrench className="w-3.5 h-3.5" />
+                    <span>Dev Tools</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1189,7 +1240,7 @@ export const App: React.FC = () => {
 
       {/* Dev Simulation Drawer */}
       <DevSimDrawer
-        isOpen={isDevOpen}
+        isOpen={isDevOpen && (isLocalDev || isDevAuthorized)}
         onClose={() => setIsDevOpen(false)}
         player={player}
         telemetry={telemetry}

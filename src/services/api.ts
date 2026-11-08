@@ -57,6 +57,21 @@ export async function fetchPlayerState(): Promise<PlayerState> {
   return await handleApiResponse<PlayerState>(res);
 }
 
+export async function checkDevAccess(): Promise<{ authorized: boolean }> {
+  try {
+    const res = await fetch(`${BASE_URL}/dev/access`, {
+      headers: getAuthHeaders()
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return { authorized: !!data.authorized };
+    }
+  } catch (e) {
+    console.warn('Developer access check failed:', e);
+  }
+  return { authorized: false };
+}
+
 export async function claimWork(simulateUnits?: number): Promise<{
   player: PlayerState;
   passiveEnergyEarned: number;
@@ -69,7 +84,7 @@ export async function claimWork(simulateUnits?: number): Promise<{
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Player-ID': getPlayerId()
+      ...getAuthHeaders()
     },
     body: JSON.stringify({ simulateUnits })
   });
@@ -84,7 +99,7 @@ export async function setDevActivityRpm(rpm: number): Promise<{
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Player-ID': getPlayerId()
+      ...getAuthHeaders()
     },
     body: JSON.stringify({ simulateRpm: rpm })
   });
@@ -99,7 +114,7 @@ export async function setDevBatteryState(options: { energy?: number; capacity?: 
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Player-ID': getPlayerId()
+      ...getAuthHeaders()
     },
     body: JSON.stringify({
       setBatteryEnergy: options.energy,
@@ -117,7 +132,7 @@ export async function setDevBreedingCharges(charges: number, progress?: number):
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Player-ID': getPlayerId()
+      ...getAuthHeaders()
     },
     body: JSON.stringify({
       setBreedingCharges: charges,
@@ -135,7 +150,7 @@ export async function addDevBreedingCharges(amount: number = 1): Promise<{
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Player-ID': getPlayerId()
+      ...getAuthHeaders()
     },
     body: JSON.stringify({
       addBreedingCharges: amount
@@ -289,7 +304,7 @@ export async function resetLab(): Promise<{ player: PlayerState }> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Player-ID': getPlayerId()
+      ...getAuthHeaders()
     }
   });
   return await handleApiResponse(res);
