@@ -280,75 +280,155 @@ async function loadPlayerState(db: any, playerId: string): Promise<PlayerState |
     player.lastRestoredBackupId = row.last_restored_backup_id;
   }
 
+  // Record loaded revision for optimistic concurrency verification
+  (player as any)._initialSaveRevision = player.saveRevision;
+  (player as any)._isNewPlayer = false;
+
   playerStore.set(playerId, player);
   return player;
 }
 
-async function savePlayerState(db: any, player: PlayerState, options?: { forceRevision?: number }): Promise<void> {
-  // Monotonically advance save revision on every state write
+export class SaveConflictError extends Error {
+  public code = 'CONCURRENT_SAVE_CONFLICT';
+  public currentRevision: number;
+  constructor(message: string, currentRevision: number) {
+    super(message);
+    this.name = 'SaveConflictError';
+    this.currentRevision = currentRevision;
+  }
+}
+
+async function savePlayerState(
+  db: any,
+  player: PlayerState,
+  options?: { forceRevision?: number; expectedRevision?: number; isNewPlayer?: boolean }
+): Promise<void> {
+  const isNew = options?.isNewPlayer ?? (player as any)._isNewPlayer ?? false;
+  const expectedRev = options?.expectedRevision ?? (player as any)._initialSaveRevision ?? player.saveRevision ?? 1;
+
+  // Advance revision
   if (options?.forceRevision !== undefined) {
     player.saveRevision = options.forceRevision;
   } else {
-    player.saveRevision = (player.saveRevision || 0) + 1;
+    player.saveRevision = expectedRev + 1;
   }
   if (!player.saveLineageId) {
     player.saveLineageId = `lin_${player.id}`;
   }
 
-  playerStore.set(player.id, player);
-
-  if (!db) return;
+  // Update in-memory fallback
+  if (!db) {
+    const existing = playerStore.get(player.id);
+    if (!isNew && existing && options?.expectedRevision !== undefined && existing.saveRevision !== options.expectedRevision) {
+      throw new SaveConflictError(
+        `CONCURRENT_SAVE_CONFLICT: Player state was modified by a concurrent request (expected rev ${options.expectedRevision}, found ${existing.saveRevision}).`,
+        existing.saveRevision || 1
+      );
+    }
+    playerStore.set(player.id, player);
+    return;
+  }
 
   const now = Date.now();
   const stateJson = JSON.stringify(player);
 
-  await db.prepare(`
-    INSERT INTO players (
-      id, created_at, last_active_at, battery_energy, battery_capacity,
-      research_insight, lab_level, active_assistant, active_assistant_hamster_id,
-      last_credited_work, fractional_work_remainder, completed_grand_paradox,
-      last_regen_at, fractional_regen_ms, breeding_charges, breeding_charge_progress,
-      last_live_breeding_at, active_lab_hybrid_id, last_fate_roll_at,
-      last_serious_incident_at, total_experiments_conducted, hybrid_capacity_bonus,
-      research_mastery_level, save_revision, save_lineage_id, last_restored_backup_id, state_json
-    ) VALUES (
-      ?, ?, ?, ?, ?,
-      ?, ?, ?, ?,
-      ?, ?, ?,
-      ?, ?, ?, ?,
-      ?, ?, ?,
-      ?, ?, ?,
-      ?, ?, ?, ?, ?
-    )
-    ON CONFLICT(id) DO UPDATE SET
-      last_active_at = excluded.last_active_at,
-      battery_energy = excluded.battery_energy,
-      battery_capacity = excluded.battery_capacity,
-      research_insight = excluded.research_insight,
-      lab_level = excluded.lab_level,
-      active_assistant = excluded.active_assistant,
-      active_assistant_hamster_id = excluded.active_assistant_hamster_id,
-      last_credited_work = excluded.last_credited_work,
-      fractional_work_remainder = excluded.fractional_work_remainder,
-      completed_grand_paradox = excluded.completed_grand_paradox,
-      last_regen_at = excluded.last_regen_at,
-      fractional_regen_ms = excluded.fractional_regen_ms,
-      breeding_charges = excluded.breeding_charges,
-      breeding_charge_progress = excluded.breeding_charge_progress,
-      last_live_breeding_at = excluded.last_live_breeding_at,
-      active_lab_hybrid_id = excluded.active_lab_hybrid_id,
-      last_fate_roll_at = excluded.last_fate_roll_at,
-      last_serious_incident_at = excluded.last_serious_incident_at,
-      total_experiments_conducted = excluded.total_experiments_conducted,
-      hybrid_capacity_bonus = excluded.hybrid_capacity_bonus,
-      research_mastery_level = excluded.research_mastery_level,
-      save_revision = excluded.save_revision,
-      save_lineage_id = excluded.save_lineage_id,
-      last_restored_backup_id = excluded.last_restored_backup_id,
-      state_json = excluded.state_json
+  if (isNew) {
+    try {
+      await db.prepare(`
+        INSERT INTO players (
+          id, created_at, last_active_at, battery_energy, battery_capacity,
+          research_insight, lab_level, active_assistant, active_assistant_hamster_id,
+          last_credited_work, fractional_work_remainder, completed_grand_paradox,
+          last_regen_at, fractional_regen_ms, breeding_charges, breeding_charge_progress,
+          last_live_breeding_at, active_lab_hybrid_id, last_fate_roll_at,
+          last_serious_incident_at, total_experiments_conducted, hybrid_capacity_bonus,
+          research_mastery_level, save_revision, save_lineage_id, last_restored_backup_id, state_json
+        ) VALUES (
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?,
+          ?, ?, ?,
+          ?, ?, ?, ?,
+          ?, ?, ?,
+          ?, ?, ?,
+          ?, ?, ?, ?, ?
+        )
+      `).bind(
+        player.id,
+        player.createdAt || now,
+        now,
+        player.batteryEnergy,
+        player.batteryCapacity,
+        player.researchInsight,
+        player.labLevel,
+        player.activeAssistant,
+        player.activeAssistantHamsterId || null,
+        player.lastCreditedWork,
+        player.fractionalWorkRemainder,
+        player.completedGrandParadox ? 1 : 0,
+        player.lastRegenAt,
+        player.fractionalRegenMs,
+        player.breedingCharges || 0,
+        player.breedingChargeProgress || 0,
+        player.lastLiveBreedingAt || 0,
+        player.activeLabHybridId || null,
+        player.lastFateRollAt || 0,
+        player.lastSeriousIncidentAt || 0,
+        player.totalExperimentsConducted || 0,
+        player.hybridCapacityBonus || 0,
+        player.researchMasteryLevel || 0,
+        player.saveRevision,
+        player.saveLineageId,
+        player.lastRestoredBackupId || null,
+        stateJson
+      ).run();
+
+      (player as any)._isNewPlayer = false;
+      (player as any)._initialSaveRevision = player.saveRevision;
+      playerStore.set(player.id, player);
+      return;
+    } catch (insertErr: any) {
+      const existingRow = await db.prepare('SELECT save_revision FROM players WHERE id = ?').bind(player.id).first();
+      if (existingRow) {
+        playerStore.delete(player.id);
+        throw new SaveConflictError(
+          'CONCURRENT_SAVE_CONFLICT: Player account already initialized by another concurrent session.',
+          Number(existingRow.save_revision)
+        );
+      }
+      throw insertErr;
+    }
+  }
+
+  // Existing player: Optimistic Concurrency Update
+  const updateRes = await db.prepare(`
+    UPDATE players SET
+      last_active_at = ?,
+      battery_energy = ?,
+      battery_capacity = ?,
+      research_insight = ?,
+      lab_level = ?,
+      active_assistant = ?,
+      active_assistant_hamster_id = ?,
+      last_credited_work = ?,
+      fractional_work_remainder = ?,
+      completed_grand_paradox = ?,
+      last_regen_at = ?,
+      fractional_regen_ms = ?,
+      breeding_charges = ?,
+      breeding_charge_progress = ?,
+      last_live_breeding_at = ?,
+      active_lab_hybrid_id = ?,
+      last_fate_roll_at = ?,
+      last_serious_incident_at = ?,
+      total_experiments_conducted = ?,
+      hybrid_capacity_bonus = ?,
+      research_mastery_level = ?,
+      save_revision = ?,
+      save_lineage_id = ?,
+      last_restored_backup_id = ?,
+      state_json = ?
+    WHERE id = ? AND save_revision = ?
   `).bind(
-    player.id,
-    player.createdAt || now,
     now,
     player.batteryEnergy,
     player.batteryCapacity,
@@ -373,8 +453,87 @@ async function savePlayerState(db: any, player: PlayerState, options?: { forceRe
     player.saveRevision,
     player.saveLineageId,
     player.lastRestoredBackupId || null,
-    stateJson
+    stateJson,
+    player.id,
+    expectedRev
   ).run();
+
+  const changes = updateRes?.meta?.changes ?? (updateRes as any)?.changes ?? 0;
+  if (changes === 0) {
+    const latestRow = await db.prepare('SELECT save_revision FROM players WHERE id = ?').bind(player.id).first();
+    if (latestRow) {
+      playerStore.delete(player.id);
+      const currentRev = Number(latestRow.save_revision);
+      throw new SaveConflictError(
+        `CONCURRENT_SAVE_CONFLICT: Stale write rejected. Expected revision ${expectedRev}, but current committed database revision is ${currentRev}.`,
+        currentRev
+      );
+    } else {
+      // Row doesn't exist yet in D1: execute initial insert
+      try {
+        await db.prepare(`
+          INSERT INTO players (
+            id, created_at, last_active_at, battery_energy, battery_capacity,
+            research_insight, lab_level, active_assistant, active_assistant_hamster_id,
+            last_credited_work, fractional_work_remainder, completed_grand_paradox,
+            last_regen_at, fractional_regen_ms, breeding_charges, breeding_charge_progress,
+            last_live_breeding_at, active_lab_hybrid_id, last_fate_roll_at,
+            last_serious_incident_at, total_experiments_conducted, hybrid_capacity_bonus,
+            research_mastery_level, save_revision, save_lineage_id, last_restored_backup_id, state_json
+          ) VALUES (
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?, ?,
+            ?, ?, ?,
+            ?, ?, ?, ?, ?
+          )
+        `).bind(
+          player.id,
+          player.createdAt || now,
+          now,
+          player.batteryEnergy,
+          player.batteryCapacity,
+          player.researchInsight,
+          player.labLevel,
+          player.activeAssistant,
+          player.activeAssistantHamsterId || null,
+          player.lastCreditedWork,
+          player.fractionalWorkRemainder,
+          player.completedGrandParadox ? 1 : 0,
+          player.lastRegenAt,
+          player.fractionalRegenMs,
+          player.breedingCharges || 0,
+          player.breedingChargeProgress || 0,
+          player.lastLiveBreedingAt || 0,
+          player.activeLabHybridId || null,
+          player.lastFateRollAt || 0,
+          player.lastSeriousIncidentAt || 0,
+          player.totalExperimentsConducted || 0,
+          player.hybridCapacityBonus || 0,
+          player.researchMasteryLevel || 0,
+          player.saveRevision,
+          player.saveLineageId,
+          player.lastRestoredBackupId || null,
+          stateJson
+        ).run();
+      } catch (insertErr) {
+        playerStore.delete(player.id);
+        const secondCheck = await db.prepare('SELECT save_revision FROM players WHERE id = ?').bind(player.id).first();
+        if (secondCheck) {
+          throw new SaveConflictError(
+            'CONCURRENT_SAVE_CONFLICT: Player account already initialized by another concurrent session.',
+            Number(secondCheck.save_revision)
+          );
+        }
+        throw insertErr;
+      }
+    }
+  }
+
+  (player as any)._initialSaveRevision = player.saveRevision;
+  playerStore.set(player.id, player);
 }
 
 async function getSessionFromDb(db: any, token: string): Promise<{ sessionToken: string; walletAddress: string; playerId: string; expiresAt: number } | null> {
@@ -462,6 +621,41 @@ async function verifyBackupSignature(payload: any, signatureHex: string, secretK
     return await crypto.subtle.verify('HMAC', key, sigBytes, data);
   } catch {
     return false;
+  }
+}
+
+async function sealChamberPayload(data: any, secretKey: string): Promise<string> {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.digest('SHA-256', enc.encode(secretKey));
+  const key = await crypto.subtle.importKey('raw', keyMaterial, { name: 'AES-GCM' }, false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  let binary = '';
+  for (let i = 0; i < combined.length; i++) {
+    binary += String.fromCharCode(combined[i]);
+  }
+  return btoa(binary);
+}
+
+async function unsealChamberPayload(sealedBase64: string, secretKey: string): Promise<any | null> {
+  try {
+    const binary = atob(sealedBase64);
+    const raw = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      raw[i] = binary.charCodeAt(i);
+    }
+    const iv = raw.slice(0, 12);
+    const data = raw.slice(12);
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.digest('SHA-256', enc.encode(secretKey));
+    const key = await crypto.subtle.importKey('raw', keyMaterial, { name: 'AES-GCM' }, false, ['decrypt']);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  } catch {
+    return null;
   }
 }
 
@@ -770,6 +964,24 @@ export default {
         const backupSecret = (env as any)?.BACKUP_SECRET_KEY || (env as any)?.DEFAULT_AUTHORIZER_PRIVATE_KEY || DEFAULT_AUTHORIZER_PRIVATE_KEY;
         const signature = await signBackupPayload(canonicalPayload, backupSecret);
 
+        let sealedIncubation: string | null = null;
+        if (authoritativePlayer.activeIncubation?._candidateA && authoritativePlayer.activeIncubation?._candidateB) {
+          sealedIncubation = await sealChamberPayload({
+            incubationId: authoritativePlayer.activeIncubation.id,
+            candidateA: authoritativePlayer.activeIncubation._candidateA,
+            candidateB: authoritativePlayer.activeIncubation._candidateB
+          }, backupSecret);
+        }
+
+        let sealedExperiment: string | null = null;
+        if (authoritativePlayer.activeExperiment?._outcomeA && authoritativePlayer.activeExperiment?._outcomeB) {
+          sealedExperiment = await sealChamberPayload({
+            experimentId: authoritativePlayer.activeExperiment.id,
+            outcomeA: authoritativePlayer.activeExperiment._outcomeA,
+            outcomeB: authoritativePlayer.activeExperiment._outcomeB
+          }, backupSecret);
+        }
+
         const backupFile = {
           app: 'schrodingers-hamster',
           version: 2,
@@ -791,6 +1003,8 @@ export default {
             totalExperiments: authoritativePlayer.totalExperimentsConducted || 0
           },
           playerState: cleanPlayerState,
+          sealedIncubation,
+          sealedExperiment,
           signature
         };
 
@@ -1138,6 +1352,64 @@ export default {
         restoredPlayer.saveLineageId = backup.lineageId || currentLive?.saveLineageId || `lin_${targetPlayerId}`;
         restoredPlayer.lastRestoredBackupId = backupId;
         restoredPlayer.lastActiveAt = Date.now();
+
+        const legacyNotices: string[] = [];
+
+        // Restore active incubation outcomes
+        if (restoredPlayer.activeIncubation) {
+          let incubationRestored = false;
+          if (backup.sealedIncubation) {
+            const unsealed = await unsealChamberPayload(backup.sealedIncubation, backupSecret);
+            if (unsealed && unsealed.incubationId === restoredPlayer.activeIncubation.id && unsealed.candidateA && unsealed.candidateB) {
+              restoredPlayer.activeIncubation._candidateA = unsealed.candidateA;
+              restoredPlayer.activeIncubation._candidateB = unsealed.candidateB;
+              incubationRestored = true;
+            }
+          }
+          if (!incubationRestored && currentLive?.activeIncubation?.id === restoredPlayer.activeIncubation.id && currentLive.activeIncubation._candidateA) {
+            restoredPlayer.activeIncubation._candidateA = currentLive.activeIncubation._candidateA;
+            restoredPlayer.activeIncubation._candidateB = currentLive.activeIncubation._candidateB;
+            incubationRestored = true;
+          }
+          if (!incubationRestored) {
+            // Legacy backup without candidate data: handle explicitly
+            const wasLiveBreeding = Boolean(restoredPlayer.activeIncubation.isLiveBreeding);
+            restoredPlayer.activeIncubation = null;
+            if (!wasLiveBreeding) {
+              restoredPlayer.breedingCharges = Math.min(MAX_BREEDING_CHARGES, (restoredPlayer.breedingCharges || 0) + 1);
+            }
+            legacyNotices.push(
+              wasLiveBreeding
+                ? 'Legacy active incubation (free live breeding) could not be verified for exact candidate preservation; chamber was safely reset.'
+                : 'Legacy active incubation could not be verified for exact candidate preservation; chamber was safely reset and 1 breeding charge was refunded.'
+            );
+          }
+        }
+
+        // Restore active experiment outcomes
+        if (restoredPlayer.activeExperiment) {
+          let experimentRestored = false;
+          if (backup.sealedExperiment) {
+            const unsealed = await unsealChamberPayload(backup.sealedExperiment, backupSecret);
+            if (unsealed && unsealed.experimentId === restoredPlayer.activeExperiment.id && unsealed.outcomeA && unsealed.outcomeB) {
+              restoredPlayer.activeExperiment._outcomeA = unsealed.outcomeA;
+              restoredPlayer.activeExperiment._outcomeB = unsealed.outcomeB;
+              experimentRestored = true;
+            }
+          }
+          if (!experimentRestored && currentLive?.activeExperiment?.id === restoredPlayer.activeExperiment.id && currentLive.activeExperiment._outcomeA) {
+            restoredPlayer.activeExperiment._outcomeA = currentLive.activeExperiment._outcomeA;
+            restoredPlayer.activeExperiment._outcomeB = currentLive.activeExperiment._outcomeB;
+            experimentRestored = true;
+          }
+          if (!experimentRestored) {
+            const spent = (restoredPlayer.activeExperiment as any).energySpent || 15;
+            restoredPlayer.activeExperiment = null;
+            restoredPlayer.batteryEnergy = Math.min(restoredPlayer.batteryCapacity, restoredPlayer.batteryEnergy + spent);
+            legacyNotices.push(`Legacy active experiment could not be verified for exact outcome preservation; experiment was safely reset and ${spent} battery energy was refunded.`);
+          }
+        }
+
         ensurePlayerMigration(restoredPlayer, Date.now());
 
         const stateJson = JSON.stringify(restoredPlayer);
@@ -1234,11 +1506,14 @@ export default {
           await env.DB.batch([insertConsumedStmt, upsertPlayerStmt]);
         }
 
+        (restoredPlayer as any)._initialSaveRevision = restoredPlayer.saveRevision;
+        (restoredPlayer as any)._isNewPlayer = false;
         playerStore.set(targetPlayerId, restoredPlayer);
 
         return new Response(JSON.stringify({
           success: true,
           message: 'Laboratory progression successfully restored from verified backup.',
+          notices: legacyNotices.length > 0 ? legacyNotices : undefined,
           player: sanitizePlayerForClient(restoredPlayer)
         }), { headers });
       }
@@ -1685,22 +1960,79 @@ export default {
       // 11. Start Quantum Incubation (Breeding)
       if (pathname === '/api/incubator/start' && request.method === 'POST') {
         const body = await request.json().catch(() => ({})) as any;
-        const parent1Species = body.parent1Species as string;
-        const parent2Species = body.parent2Species as string;
+        const parent1Id = (body.parent1Id || body.parent1Species) as string;
+        const parent2Id = (body.parent2Id || body.parent2Species) as string;
+
+        if (!player) {
+          return new Response(JSON.stringify({ error: 'Player not found' }), { status: 404, headers });
+        }
 
         applyPassiveRegeneration(player, now);
         const telemetry = await fetchSqueekchainTelemetry();
 
+        const currentHybrids = player.hybrids || [];
         try {
-          const res = startIncubation(player, parent1Species, parent2Species, telemetry, now);
+          // If parent is an NFT hybrid, verify current onchain ownership via Sepolia RPC
+          const verifyNftParent = async (parentId: string) => {
+            const hybrid = currentHybrids.find((h: any) => h.id === parentId);
+            if (hybrid && hybrid.nftTokenId) {
+              if (!sessionWallet) {
+                const err: any = new Error('NFT_WALLET_REQUIRED: An authenticated Web3 wallet is required to breed using an NFT parent specimen.');
+                err.status = 403;
+                err.code = 'NFT_WALLET_REQUIRED';
+                throw err;
+              }
+              const rpcUrl = (env as any)?.SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com';
+              const contractAddress = (env as any)?.HAMSTER_NFT_CONTRACT_ADDRESS || '0xd77e88ccdb7b535133796d428e95322217ce99a4';
+              let onchainOwner: string | null = null;
+              try {
+                const publicClient = createPublicClient({
+                  chain: {
+                    id: 11155111,
+                    name: 'Sepolia',
+                    nativeCurrency: { name: 'Sepolia Ether', symbol: 'SEP', decimals: 18 },
+                    rpcUrls: { default: { http: [rpcUrl] } }
+                  } as any,
+                  transport: http(rpcUrl)
+                });
+                onchainOwner = await publicClient.readContract({
+                  address: contractAddress as Address,
+                  abi: HAMSTER_NFT_ABI,
+                  functionName: 'ownerOf',
+                  args: [BigInt(hybrid.nftTokenId)]
+                }) as string;
+              } catch (rpcErr: any) {
+                const err: any = new Error(`RPC_OWNERSHIP_CHECK_FAILED: Unable to verify onchain ownership for NFT #${hybrid.nftTokenId} due to RPC communication timeout. Please retry.`);
+                err.status = 503;
+                err.code = 'RPC_OWNERSHIP_CHECK_FAILED';
+                throw err;
+              }
+              if (!onchainOwner || onchainOwner.toLowerCase() !== sessionWallet.toLowerCase()) {
+                const err: any = new Error(`NFT_OWNERSHIP_MISMATCH: Parent NFT #${hybrid.nftTokenId} is owned onchain by ${onchainOwner}, not connected wallet ${sessionWallet}.`);
+                err.status = 403;
+                err.code = 'NFT_OWNERSHIP_MISMATCH';
+                throw err;
+              }
+            }
+          };
 
-        await savePlayerState(env.DB, player);
+          await verifyNftParent(parent1Id);
+          await verifyNftParent(parent2Id);
+
+          const res = startIncubation(player, parent1Id, parent2Id, telemetry, now);
+
+          await savePlayerState(env.DB, player);
           return new Response(JSON.stringify({
             player: sanitizePlayerForClient(player),
             activeIncubation: sanitizePlayerForClient(player).activeIncubation
           }), { headers });
         } catch (err: any) {
-          return new Response(JSON.stringify({ error: err.message || 'Could not start incubation' }), { status: 400, headers });
+          if (err?.code === 'CONCURRENT_SAVE_CONFLICT' || err?.name === 'SaveConflictError') throw err;
+          const status = err?.status || 400;
+          return new Response(JSON.stringify({
+            error: err?.code || (status === 503 ? 'RPC_OWNERSHIP_CHECK_FAILED' : 'BREEDING_ERROR'),
+            message: err.message || 'Could not start incubation'
+          }), { status, headers });
         }
       }
 
@@ -1718,6 +2050,7 @@ export default {
             clue: res.clue
           }), { headers });
         } catch (err: any) {
+          if (err?.code === 'CONCURRENT_SAVE_CONFLICT' || err?.name === 'SaveConflictError') throw err;
           return new Response(JSON.stringify({ error: err.message || 'Could not use Quantum Sight' }), { status: 400, headers });
         }
       }
@@ -1739,6 +2072,7 @@ export default {
             chosenState: res.chosenState
           }), { headers });
         } catch (err: any) {
+          if (err?.code === 'CONCURRENT_SAVE_CONFLICT' || err?.name === 'SaveConflictError') throw err;
           return new Response(JSON.stringify({ error: err.message || 'Could not reveal incubation' }), { status: 400, headers });
         }
       }
@@ -1758,6 +2092,7 @@ export default {
             hybrid: res.hybrid
           }), { headers });
         } catch (err: any) {
+          if (err?.code === 'CONCURRENT_SAVE_CONFLICT' || err?.name === 'SaveConflictError') throw err;
           return new Response(JSON.stringify({ error: err.message || 'Could not rename hybrid' }), { status: 400, headers });
         }
       }
@@ -1776,6 +2111,7 @@ export default {
             hybrid: res.hybrid
           }), { headers });
         } catch (err: any) {
+          if (err?.code === 'CONCURRENT_SAVE_CONFLICT' || err?.name === 'SaveConflictError') throw err;
           return new Response(JSON.stringify({ error: err.message || 'Could not toggle favorite' }), { status: 400, headers });
         }
       }
@@ -1795,6 +2131,7 @@ export default {
             energyRefunded: res.energyRefunded
           }), { headers });
         } catch (err: any) {
+          if (err?.code === 'CONCURRENT_SAVE_CONFLICT' || err?.name === 'SaveConflictError') throw err;
           return new Response(JSON.stringify({ error: err.message || 'Could not release hybrid' }), { status: 400, headers });
         }
       }
@@ -1813,6 +2150,7 @@ export default {
             activeLabHybridId: player.activeLabHybridId
           }), { headers });
         } catch (err: any) {
+          if (err?.code === 'CONCURRENT_SAVE_CONFLICT' || err?.name === 'SaveConflictError') throw err;
           return new Response(JSON.stringify({ error: err.message || 'Could not set lab display' }), { status: 400, headers });
         }
       }
@@ -1844,28 +2182,30 @@ export default {
       if (pathname === '/api/player/reset' && request.method === 'POST') {
         const body = await request.json().catch(() => ({})) as any;
         const telemetry = await fetchSqueekchainTelemetry();
-        player = createInitialPlayerState(playerId, telemetry.settledCumulativeWork);
+        const prevRevision = player?.saveRevision || 1;
+        const resetPlayer = createInitialPlayerState(playerId, telemetry.settledCumulativeWork);
+        (resetPlayer as any)._initialSaveRevision = prevRevision;
 
         if (typeof body.insight === 'number') {
-          player.researchInsight = body.insight;
+          resetPlayer.researchInsight = body.insight;
         }
         if (typeof body.labLevel === 'number') {
-          player.labLevel = body.labLevel as any;
+          resetPlayer.labLevel = body.labLevel as any;
         }
         if (Array.isArray(body.unlockedResearch)) {
-          player.unlockedResearch = [...body.unlockedResearch];
+          resetPlayer.unlockedResearch = [...body.unlockedResearch];
         }
 
         if (Array.isArray(body.hybrids)) {
-          player.hybrids = [...body.hybrids];
+          resetPlayer.hybrids = [...body.hybrids];
         }
 
         if (body.grantSpecies && Array.isArray(body.grantSpecies)) {
           for (const s of body.grantSpecies) {
-            player.discoveredHamsters[s] = { discoveredAt: Date.now(), count: 1 };
+            resetPlayer.discoveredHamsters[s] = { discoveredAt: Date.now(), count: 1 };
             // Also ensure individual companion is in hamsters list
-            if (!player.hamsters.some(h => h.speciesId === s)) {
-              player.hamsters.push({
+            if (!resetPlayer.hamsters.some(h => h.speciesId === s)) {
+              resetPlayer.hamsters.push({
                 id: `ham_${playerId}_${s}_${Date.now()}`,
                 playerId,
                 speciesId: s,
@@ -1880,8 +2220,9 @@ export default {
           }
         }
 
-        await savePlayerState(env.DB, player);
-        return new Response(JSON.stringify({ player: sanitizePlayerForClient(player), message: 'Lab reset complete' }), { headers });
+        await savePlayerState(env.DB, resetPlayer, { expectedRevision: prevRevision });
+        player = resetPlayer;
+        return new Response(JSON.stringify({ player: sanitizePlayerForClient(resetPlayer), message: 'Lab reset complete' }), { headers });
       }
 
       // =========================================================================
@@ -2472,6 +2813,13 @@ export default {
 
       return new Response(JSON.stringify({ error: 'Endpoint not found' }), { status: 404, headers });
     } catch (err: any) {
+      if (err?.code === 'CONCURRENT_SAVE_CONFLICT' || err?.name === 'SaveConflictError') {
+        return new Response(JSON.stringify({
+          error: 'CONCURRENT_SAVE_CONFLICT',
+          message: err.message,
+          currentRevision: err.currentRevision
+        }), { status: 409, headers });
+      }
       return new Response(JSON.stringify({ error: err.message || 'Internal Server Error' }), { status: 500, headers });
     }
   }

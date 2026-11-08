@@ -268,6 +268,13 @@ export interface QuantumHybrid {
   discoveredAt: number;
   isFavorite: boolean;
   traits: HybridCosmeticTraits;
+  // Generation & Lineage
+  generation?: 1 | 2;
+  parent1Id?: string;
+  parent2Id?: string;
+  parent1Name?: string;
+  parent2Name?: string;
+  ancestryLineage?: string;
   // Quantum Fate fields
   existenceStatus: HybridExistenceStatus;
   missingSince?: number | null;
@@ -348,6 +355,12 @@ export interface ActiveIncubationState {
   id: string;
   parent1Species: string;
   parent2Species: string;
+  parent1Id?: string;
+  parent2Id?: string;
+  parent1Name?: string;
+  parent2Name?: string;
+  childGeneration?: 1 | 2;
+  ancestryLineage?: string;
   startedAt: number;
   finishesAt: number;
   isLiveBreeding: boolean;
@@ -572,6 +585,8 @@ export interface ActiveExperimentState {
   ghostSightUsed: boolean;
   ghostSightTarget?: 'A' | 'B' | null;
   outcome?: ExperimentOutcome;
+  _outcomeA?: ExperimentOutcome;
+  _outcomeB?: ExperimentOutcome;
 }
 
 export interface PlayerState {

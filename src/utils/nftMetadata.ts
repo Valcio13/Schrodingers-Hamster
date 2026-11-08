@@ -205,13 +205,14 @@ export function computeDeterministicIpfsCid(contentString: string): string {
  * Creates canonical ERC-721 metadata JSON object for a quantum hybrid hamster.
  */
 export function buildCanonicalNftMetadata(hybrid: QuantumHybrid, tokenId: number, artworkCid: string) {
-  const p1Name = HAMSTER_SPECIES[hybrid.parent1Species]?.name || hybrid.parent1Species;
-  const p2Name = HAMSTER_SPECIES[hybrid.parent2Species]?.name || hybrid.parent2Species;
+  const p1Name = hybrid.parent1Name || HAMSTER_SPECIES[hybrid.parent1Species]?.name || hybrid.parent1Species;
+  const p2Name = hybrid.parent2Name || HAMSTER_SPECIES[hybrid.parent2Species]?.name || hybrid.parent2Species;
 
   const displayName = hybrid.generatedName || hybrid.nickname || `Hamster #${tokenId}`;
 
   const attributes = [
-    { trait_type: 'Species Lineage', value: `${p1Name} × ${p2Name}` },
+    { trait_type: 'Species Lineage', value: hybrid.ancestryLineage || `${p1Name} × ${p2Name}` },
+    { trait_type: 'Generation', value: hybrid.generation || 1 },
     { trait_type: 'Parent 1', value: p1Name },
     { trait_type: 'Parent 2', value: p2Name },
     { trait_type: 'Rarity', value: hybrid.rarity.charAt(0).toUpperCase() + hybrid.rarity.slice(1) },
@@ -233,7 +234,7 @@ export function buildCanonicalNftMetadata(hybrid: QuantumHybrid, tokenId: number
     name: displayName,
     description: `Schrödinger's Hamster #${tokenId} — An immutable procedurally generated quantum hybrid created through dual-state quantum incubation in Schrödinger's Laboratory.`,
     image: `ipfs://${artworkCid}`,
-    external_url: `https://schrodingers-hamster.pages.dev/dex?token=${tokenId}`,
+    external_url: `https://schrohams.my.id/dex?token=${tokenId}`,
     attributes
   };
 }

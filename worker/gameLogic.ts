@@ -29,7 +29,7 @@ import {
   NOTE_COST_BREEDING_CHARGE,
   NOTE_COST_HABITAT_EXPANSION
 } from '../src/types/game';
-import { generateQuantumHybrid } from '../src/utils/hybridGenerator';
+import { generateQuantumHybrid, generateMultiGenHybrid, createParentDescriptor } from '../src/utils/hybridGenerator';
 import { SqueekTelemetry } from './squeekchain';
 
 export {
@@ -101,6 +101,26 @@ export function createInitialPlayerState(playerId: string, currentSettledWork: n
 }
 
 /**
+ * Deterministically derives Candidate A and Candidate B seeds from an incubation ID.
+ * Ensures candidate hybrids can be securely reconstructed if an active incubation
+ * is restored from a sanitized backup, preventing outcome re-rolling without exposing
+ * hidden traits to the browser.
+ */
+export function deriveDeterministicIncubationSeeds(incubationId: string): { seedA: number; seedB: number } {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < incubationId.length; i++) {
+    const ch = incubationId.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const seedA = Math.abs(h1) % 1000000000;
+  const seedB = Math.abs(h2) % 1000000000;
+  return { seedA, seedB };
+}
+
+/**
  * Migration helper to ensure legacy player state receives
  * individual collectible hamsters and Battery 2.0 fields.
  */
@@ -150,8 +170,49 @@ export function ensurePlayerMigration(player: any, now: number = Date.now()) {
   if (!player.hybrids) {
     player.hybrids = [];
   }
+  // Restore candidate outcomes for active incubation if stripped in backup
   if (player.activeIncubation === undefined) {
     player.activeIncubation = null;
+  } else if (player.activeIncubation) {
+    const inc = player.activeIncubation;
+    if (!inc._candidateA || !inc._candidateB) {
+      if (inc.parent1Species && inc.parent2Species && inc.id) {
+        const { seedA, seedB } = deriveDeterministicIncubationSeeds(inc.id);
+        inc._candidateA = generateQuantumHybrid(player.id, inc.parent1Species, inc.parent2Species, seedA);
+        inc._candidateB = generateQuantumHybrid(player.id, inc.parent1Species, inc.parent2Species, seedB);
+      } else {
+        player.activeIncubation = null;
+      }
+    }
+  }
+
+  // Restore candidate outcomes for active experiment if stripped in backup
+  if (player.activeExperiment) {
+    const exp = player.activeExperiment;
+    if (!exp._outcomeA || !exp._outcomeB) {
+      if (exp.type && exp.id) {
+        const dummyTelemetry: SqueekTelemetry = {
+          freshness: 'online',
+          rpm: 0,
+          speedMmPerSecond: 0,
+          distanceMm: 0,
+          counterEpoch: 'recovery',
+          observedAt: new Date().toISOString(),
+          provenance: 'hardware',
+          coreStatus: 'RUNNING',
+          settledCumulativeWork: player.lastCreditedWork || 0,
+          settledRound: 0,
+          blockHeight: 0,
+          activityPattern: 'resting',
+          patternDescription: 'Squeektoshi is resting in nest (Classical state)'
+        };
+        const pair = generateQuantumStatePair(exp.type, exp.approach || 'stable', player, dummyTelemetry);
+        exp._outcomeA = pair.stateA.outcome;
+        exp._outcomeB = pair.stateB.outcome;
+      } else {
+        player.activeExperiment = null;
+      }
+    }
   }
   if (player.breedingCharges === undefined) {
     player.breedingCharges = 0;
@@ -313,12 +374,27 @@ export function startIncubation(
     throw new Error('An incubation is already active in the Quantum Incubator chamber.');
   }
 
-  // Validate parents: must be discovered Base Hamsters
-  if (!player.discoveredHamsters[parent1Species] || !HAMSTER_SPECIES[parent1Species]) {
-    throw new Error(`Invalid Parent 1: ${parent1Species} is not discovered.`);
+  if (parent1Species === parent2Species) {
+    throw new Error('Cannot select the same specimen twice as both parents.');
   }
-  if (!player.discoveredHamsters[parent2Species] || !HAMSTER_SPECIES[parent2Species]) {
-    throw new Error(`Invalid Parent 2: ${parent2Species} is not discovered.`);
+
+  const parent1Desc = createParentDescriptor(player, parent1Species);
+  const parent2Desc = createParentDescriptor(player, parent2Species);
+
+  // Validate parents: base species must be discovered
+  if (parent1Desc.isBase && !player.discoveredHamsters[parent1Desc.speciesId!]) {
+    throw new Error(`Invalid Parent 1: ${parent1Desc.speciesId} is not discovered.`);
+  }
+  if (parent2Desc.isBase && !player.discoveredHamsters[parent2Desc.speciesId!]) {
+    throw new Error(`Invalid Parent 2: ${parent2Desc.speciesId} is not discovered.`);
+  }
+
+  // Generation check: Gen 2 cannot breed
+  if (!parent1Desc.isBase && (parent1Desc.generation || 1) >= 2) {
+    throw new Error('Generation 2 hamsters cannot breed.');
+  }
+  if (!parent2Desc.isBase && (parent2Desc.generation || 1) >= 2) {
+    throw new Error('Generation 2 hamsters cannot breed.');
   }
 
   // Check breeding method: Live Squeektoshi running vs Stored Charge
@@ -343,12 +419,12 @@ export function startIncubation(
     player.breedingCharges -= 1;
   }
 
-  // Generate Candidate A & Candidate B with deterministic seeds
-  const seedA = Math.floor(now % 100000000) + Math.floor(Math.random() * 999999);
-  const seedB = seedA + 77777 + Math.floor(Math.random() * 55555);
+  // Generate Candidate A & Candidate B with deterministic seeds derived from incubation ID
+  const incubationId = `inc_${player.id}_${now}_${Math.random().toString(36).substring(2, 8)}`;
+  const { seedA, seedB } = deriveDeterministicIncubationSeeds(incubationId);
 
-  const candidateA = generateQuantumHybrid(player.id, parent1Species, parent2Species, seedA);
-  const candidateB = generateQuantumHybrid(player.id, parent1Species, parent2Species, seedB);
+  const candidateA = generateMultiGenHybrid(player.id, parent1Desc, parent2Desc, seedA);
+  const candidateB = generateMultiGenHybrid(player.id, parent1Desc, parent2Desc, seedB);
 
   const stateA = createHybridStatePreview('A', candidateA);
   const stateB = createHybridStatePreview('B', candidateB);
@@ -357,9 +433,15 @@ export function startIncubation(
   const incubationDurationMs = 8000;
 
   const incubation: ActiveIncubationState = {
-    id: `inc_${player.id}_${now}`,
-    parent1Species,
-    parent2Species,
+    id: incubationId,
+    parent1Species: parent1Desc.speciesId || 'normal',
+    parent2Species: parent2Desc.speciesId || 'normal',
+    parent1Id: parent1Desc.id,
+    parent2Id: parent2Desc.id,
+    parent1Name: parent1Desc.name,
+    parent2Name: parent2Desc.name,
+    childGeneration: candidateA.generation,
+    ancestryLineage: candidateA.ancestryLineage,
     startedAt: now,
     finishesAt: now + incubationDurationMs,
     isLiveBreeding,

@@ -751,10 +751,13 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
                           style={{ background: `radial-gradient(circle, ${hybrid.traits.palette.glow} 0%, transparent 70%)` }}
                         />
 
-                        {/* Top Left: Rarity Badge */}
-                        <div className="absolute top-2.5 left-2.5 z-10">
+                        {/* Top Left: Rarity & Generation Badge */}
+                        <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1">
                           <span className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full border shadow-sm ${rarityBadges[hybrid.rarity]}`}>
                             {hybrid.rarity}
+                          </span>
+                          <span className={`text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded-full border shadow-sm ${hybrid.generation === 2 ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/50' : 'bg-cyan-950/90 text-cyan-300 border-cyan-500/50'}`}>
+                            {hybrid.generation === 2 ? 'GEN 2' : 'GEN 1'}
                           </span>
                         </div>
 
@@ -1223,6 +1226,9 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
                   <span className={`text-[10px] uppercase font-mono font-bold px-2.5 py-0.5 rounded-full border shadow-sm ${rarityBadges[inspectingHybrid.rarity]}`}>
                     {inspectingHybrid.rarity}
                   </span>
+                  <span className={`text-[10px] uppercase font-mono font-bold px-2.5 py-0.5 rounded-full border shadow-sm ${inspectingHybrid.generation === 2 ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/50' : 'bg-cyan-950/90 text-cyan-300 border-cyan-500/50'}`}>
+                    Generation {inspectingHybrid.generation || 1}
+                  </span>
                   <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 px-2.5 py-0.5 rounded-full border border-cyan-800 shadow-sm">
                     {inspectingHybrid.personality}
                   </span>
@@ -1237,11 +1243,15 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
                   {inspectingHybrid.nickname}
                 </h3>
 
-                <p className="text-xs text-slate-300 font-mono mt-1 flex items-center justify-center sm:justify-start gap-1">
-                  <span>Parentage:</span>
-                  <strong className="text-white">{HAMSTER_SPECIES[inspectingHybrid.parent1Species]?.name}</strong>
-                  <span>×</span>
-                  <strong className="text-white">{HAMSTER_SPECIES[inspectingHybrid.parent2Species]?.name}</strong>
+                <p className="text-xs text-slate-300 font-mono mt-1 flex flex-wrap items-center justify-center sm:justify-start gap-1">
+                  <span>Lineage:</span>
+                  <strong className="text-white">{inspectingHybrid.ancestryLineage || `${inspectingHybrid.parent1Name || HAMSTER_SPECIES[inspectingHybrid.parent1Species]?.name} × ${inspectingHybrid.parent2Name || HAMSTER_SPECIES[inspectingHybrid.parent2Species]?.name}`}</strong>
+                </p>
+
+                <p className="text-[11px] font-mono mt-0.5 flex items-center justify-center sm:justify-start gap-1.5">
+                  <span className={inspectingHybrid.generation === 2 ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
+                    {inspectingHybrid.generation === 2 ? '🔒 Terminal Lineage (Cannot Breed)' : '🧬 Breeding Eligible (Base & Gen 1 Partner)'}
+                  </span>
                 </p>
 
                 <p className="text-[11px] text-slate-400 font-mono mt-0.5">

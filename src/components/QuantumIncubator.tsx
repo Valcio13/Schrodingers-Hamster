@@ -64,10 +64,49 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
   isSynthesizing = false
 }) => {
   const discoveredSpeciesIds = Object.keys(player.discoveredHamsters || {});
+  const eligibleHybridParents = (player.hybrids || []).filter(
+    (h) => h.existenceStatus === 'alive' && (h.generation === 1 || !h.generation)
+  );
 
   // Parent selections (defaults to first two discovered species)
   const [parent1, setParent1] = useState<string>(discoveredSpeciesIds[0] || 'normal');
   const [parent2, setParent2] = useState<string>(discoveredSpeciesIds[1] || discoveredSpeciesIds[0] || 'normal');
+
+  const getParentInfo = (id: string) => {
+    if (HAMSTER_SPECIES[id]) {
+      const spec = HAMSTER_SPECIES[id];
+      return {
+        id,
+        name: spec.name,
+        isBase: true,
+        generation: 1,
+        rarity: spec.rarity,
+        title: spec.title,
+        speciesId: id,
+        hybrid: null
+      };
+    }
+    const hybrid = (player.hybrids || []).find((h) => h.id === id);
+    if (hybrid) {
+      return {
+        id: hybrid.id,
+        name: hybrid.nickname || hybrid.generatedName || 'Hybrid Hamster',
+        isBase: false,
+        generation: hybrid.generation || 1,
+        rarity: hybrid.rarity,
+        title: `${(hybrid.generation || 1) === 1 ? 'Gen 1' : 'Gen 2'} Hybrid • ${hybrid.personality}`,
+        speciesId: hybrid.parent1Species,
+        hybrid
+      };
+    }
+    return null;
+  };
+
+  const p1Info = getParentInfo(parent1);
+  const p2Info = getParentInfo(parent2);
+
+  const isSameParent = parent1 === parent2;
+  const childProjectedGen = (p1Info?.isBase && p2Info?.isBase) ? 1 : 2;
 
   // Incubation state & timer
   const activeInc = player.activeIncubation;
@@ -112,7 +151,7 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
   }, [activeInc]);
 
   const handleStart = async () => {
-    if (!parent1 || !parent2 || isCapacityFull || activeInc || isStarting) return;
+    if (!parent1 || !parent2 || isSameParent || isCapacityFull || activeInc || isStarting) return;
     audio.playZap();
     try {
       await onStartIncubation(parent1, parent2);
@@ -348,16 +387,21 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
             )}
 
             {/* Parents involved */}
-            <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-slate-800 text-xs font-mono">
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <PixelHamster speciesId={activeInc.parent1Species} size="sm" />
-                <span>{HAMSTER_SPECIES[activeInc.parent1Species]?.name}</span>
+            <div className="flex flex-col items-center justify-center gap-2 mt-3 pt-3 border-t border-slate-800 text-xs font-mono">
+              <div className="flex items-center gap-3 text-slate-300">
+                <div className="flex items-center gap-1.5">
+                  <PixelHamster speciesId={activeInc.parent1Species} size="sm" />
+                  <span>{activeInc.parent1Name || HAMSTER_SPECIES[activeInc.parent1Species]?.name}</span>
+                </div>
+                <span className="text-purple-400 font-bold text-sm">×</span>
+                <div className="flex items-center gap-1.5">
+                  <PixelHamster speciesId={activeInc.parent2Species} size="sm" />
+                  <span>{activeInc.parent2Name || HAMSTER_SPECIES[activeInc.parent2Species]?.name}</span>
+                </div>
               </div>
-              <span className="text-purple-400 font-bold text-sm">×</span>
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <PixelHamster speciesId={activeInc.parent2Species} size="sm" />
-                <span>{HAMSTER_SPECIES[activeInc.parent2Species]?.name}</span>
-              </div>
+              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${activeInc.childGeneration === 2 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : 'bg-cyan-950 text-cyan-300 border border-cyan-500/40'}`}>
+                Incubating Generation {activeInc.childGeneration || 1} Hybrid
+              </span>
             </div>
           </div>
 
@@ -444,16 +488,25 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
         </div>
       ) : (
         /* Idle Setup: Parent Selection & Incubation Launch */
-        <div className="space-y-5">
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Parent 1 Selector */}
             <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
-              <label className="text-xs font-mono text-slate-400 block mb-2 font-bold">
-                SELECT PARENT 1 (BASE HAMSTER):
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-mono text-slate-400 font-bold">
+                  SELECT PARENT 1:
+                </label>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${p1Info?.isBase ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-500/30' : 'bg-purple-950/80 text-purple-300 border border-purple-500/30'}`}>
+                  {p1Info?.isBase ? 'Base Specimen' : `Gen ${p1Info?.generation} Hybrid`}
+                </span>
+              </div>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-14 h-14 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
-                  <PixelHamster speciesId={parent1} size="md" />
+                <div className="w-14 h-14 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
+                  {p1Info?.hybrid ? (
+                    <PixelHybridHamster hybrid={p1Info.hybrid} size="sm" />
+                  ) : (
+                    <PixelHamster speciesId={p1Info?.speciesId || 'normal'} size="md" />
+                  )}
                 </div>
                 <div className="flex-1">
                   <select
@@ -461,14 +514,25 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
                     onChange={(e) => setParent1(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-sans focus:outline-none focus:border-purple-500"
                   >
-                    {discoveredSpeciesIds.map((sid) => (
-                      <option key={'p1_' + sid} value={sid}>
-                        {HAMSTER_SPECIES[sid]?.name || sid} ({HAMSTER_SPECIES[sid]?.rarity})
-                      </option>
-                    ))}
+                    <optgroup label="Discovered Base Hamsters">
+                      {discoveredSpeciesIds.map((sid) => (
+                        <option key={'p1_' + sid} value={sid}>
+                          {HAMSTER_SPECIES[sid]?.name || sid} (Base • {HAMSTER_SPECIES[sid]?.rarity})
+                        </option>
+                      ))}
+                    </optgroup>
+                    {eligibleHybridParents.length > 0 && (
+                      <optgroup label="Generation 1 Hybrids (Eligible for Breeding)">
+                        {eligibleHybridParents.map((h) => (
+                          <option key={'p1_' + h.id} value={h.id}>
+                            {h.nickname || h.generatedName} (Gen 1 • {h.rarity})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
-                    {HAMSTER_SPECIES[parent1]?.title}
+                    {p1Info?.title}
                   </p>
                 </div>
               </div>
@@ -476,12 +540,21 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
 
             {/* Parent 2 Selector */}
             <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
-              <label className="text-xs font-mono text-slate-400 block mb-2 font-bold">
-                SELECT PARENT 2 (BASE HAMSTER):
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-mono text-slate-400 font-bold">
+                  SELECT PARENT 2:
+                </label>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${p2Info?.isBase ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-500/30' : 'bg-purple-950/80 text-purple-300 border border-purple-500/30'}`}>
+                  {p2Info?.isBase ? 'Base Specimen' : `Gen ${p2Info?.generation} Hybrid`}
+                </span>
+              </div>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-14 h-14 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
-                  <PixelHamster speciesId={parent2} size="md" />
+                <div className="w-14 h-14 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
+                  {p2Info?.hybrid ? (
+                    <PixelHybridHamster hybrid={p2Info.hybrid} size="sm" />
+                  ) : (
+                    <PixelHamster speciesId={p2Info?.speciesId || 'normal'} size="md" />
+                  )}
                 </div>
                 <div className="flex-1">
                   <select
@@ -489,19 +562,51 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
                     onChange={(e) => setParent2(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-sans focus:outline-none focus:border-purple-500"
                   >
-                    {discoveredSpeciesIds.map((sid) => (
-                      <option key={'p2_' + sid} value={sid}>
-                        {HAMSTER_SPECIES[sid]?.name || sid} ({HAMSTER_SPECIES[sid]?.rarity})
-                      </option>
-                    ))}
+                    <optgroup label="Discovered Base Hamsters">
+                      {discoveredSpeciesIds.map((sid) => (
+                        <option key={'p2_' + sid} value={sid}>
+                          {HAMSTER_SPECIES[sid]?.name || sid} (Base • {HAMSTER_SPECIES[sid]?.rarity})
+                        </option>
+                      ))}
+                    </optgroup>
+                    {eligibleHybridParents.length > 0 && (
+                      <optgroup label="Generation 1 Hybrids (Eligible for Breeding)">
+                        {eligibleHybridParents.map((h) => (
+                          <option key={'p2_' + h.id} value={h.id}>
+                            {h.nickname || h.generatedName} (Gen 1 • {h.rarity})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
-                    {HAMSTER_SPECIES[parent2]?.title}
+                    {p2Info?.title}
                   </p>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Projected Generation Ribbon */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-xl bg-purple-950/30 border border-purple-500/30 text-xs font-mono gap-2">
+            <div className="flex items-center gap-2">
+              <Dna className="w-4 h-4 text-purple-400" />
+              <span className="text-slate-300">Projected Offspring:</span>
+              <span className={`px-2 py-0.5 rounded font-bold ${childProjectedGen === 2 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : 'bg-cyan-950 text-cyan-300 border border-cyan-500/40'}`}>
+                Generation {childProjectedGen} Hybrid
+              </span>
+            </div>
+            <span className="text-slate-400 text-[11px]">
+              {childProjectedGen === 2 ? 'Multi-gen lineage cross (max 4 mutations)' : 'Pure base cross (dual quantum state)'}
+            </span>
+          </div>
+
+          {isSameParent && (
+            <div className="p-2.5 rounded-xl bg-rose-950/70 border border-rose-800 text-rose-300 text-xs font-mono flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>Cannot select the same specimen twice as both parents. Please choose two distinct specimens.</span>
+            </div>
+          )}
 
           {/* Launch Controls */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -527,7 +632,7 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
 
             <button
               onClick={handleStart}
-              disabled={isCapacityFull || (!isLiveEligible && (player.breedingCharges || 0) < 1) || isStarting}
+              disabled={isSameParent || isCapacityFull || (!isLiveEligible && (player.breedingCharges || 0) < 1) || isStarting}
               className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 ${
                 isCapacityFull || (!isLiveEligible && (player.breedingCharges || 0) < 1)
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-800'
@@ -633,7 +738,10 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
                 <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${rarityBadges[hatchedResult.hybrid.rarity]}`}>
                   {hatchedResult.hybrid.rarity}
                 </span>
-                <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${hatchedResult.hybrid.generation === 2 ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : 'bg-cyan-950 text-cyan-300 border-cyan-700'}`}>
+                  Generation {hatchedResult.hybrid.generation || 1}
+                </span>
+                <span className="text-[10px] font-mono text-purple-300 bg-purple-950 px-2 py-0.5 rounded border border-purple-800">
                   {hatchedResult.hybrid.personality}
                 </span>
               </div>
@@ -642,10 +750,8 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
                 {hatchedResult.hybrid.nickname}
               </h3>
 
-              <div className="flex items-center justify-center gap-1 text-xs text-slate-400 font-mono mt-1">
-                <span>Parents: {HAMSTER_SPECIES[hatchedResult.hybrid.parent1Species]?.name}</span>
-                <span>×</span>
-                <span>{HAMSTER_SPECIES[hatchedResult.hybrid.parent2Species]?.name}</span>
+              <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 font-mono mt-1">
+                <span>Lineage: {hatchedResult.hybrid.ancestryLineage || `${hatchedResult.hybrid.parent1Name || HAMSTER_SPECIES[hatchedResult.hybrid.parent1Species]?.name} × ${hatchedResult.hybrid.parent2Name || HAMSTER_SPECIES[hatchedResult.hybrid.parent2Species]?.name}`}</span>
               </div>
             </div>
 

@@ -11,8 +11,15 @@ import { SqueekTelemetry } from '../../worker/squeekchain';
 function getPlayerId(): string {
   let id = localStorage.getItem('squeek_player_id');
   if (!id) {
-    id = 'hamster_' + Math.random().toString(36).substring(2, 10);
-    localStorage.setItem('squeek_player_id', id);
+    const legacyId = localStorage.getItem('hamster_guest_player_id');
+    if (legacyId) {
+      id = legacyId;
+      localStorage.setItem('squeek_player_id', id);
+      localStorage.removeItem('hamster_guest_player_id');
+    } else {
+      id = 'hamster_' + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem('squeek_player_id', id);
+    }
   }
   return id;
 }
@@ -31,15 +38,23 @@ export function getAuthHeaders(): Record<string, string> {
 export const WORKER_PROD_API = 'https://schrodingers-hamster.valcio222.workers.dev/api';
 export const BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || ((import.meta as any).env?.PROD ? WORKER_PROD_API : '/api');
 
+export async function handleApiResponse<T = any>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const err: any = new Error(data.message || data.error || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.code = data.error;
+    err.currentRevision = data.currentRevision;
+    throw err;
+  }
+  return await res.json();
+}
+
 export async function fetchPlayerState(): Promise<PlayerState> {
   const res = await fetch(`${BASE_URL}/state?playerId=${getPlayerId()}`, {
     headers: getAuthHeaders()
   });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.message || data.error || `HTTP ${res.status}`);
-  }
-  return await res.json();
+  return await handleApiResponse<PlayerState>(res);
 }
 
 export async function claimWork(simulateUnits?: number): Promise<{
@@ -58,8 +73,7 @@ export async function claimWork(simulateUnits?: number): Promise<{
     },
     body: JSON.stringify({ simulateUnits })
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
+  return await handleApiResponse(res);
 }
 
 export async function setDevActivityRpm(rpm: number): Promise<{
@@ -74,8 +88,7 @@ export async function setDevActivityRpm(rpm: number): Promise<{
     },
     body: JSON.stringify({ simulateRpm: rpm })
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
+  return await handleApiResponse(res);
 }
 
 export async function setDevBatteryState(options: { energy?: number; capacity?: number }): Promise<{
@@ -93,8 +106,7 @@ export async function setDevBatteryState(options: { energy?: number; capacity?: 
       setBatteryCapacity: options.capacity
     })
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
+  return await handleApiResponse(res);
 }
 
 export async function setDevBreedingCharges(charges: number, progress?: number): Promise<{
@@ -112,8 +124,7 @@ export async function setDevBreedingCharges(charges: number, progress?: number):
       setBreedingChargeProgress: progress
     })
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
+  return await handleApiResponse(res);
 }
 
 export async function addDevBreedingCharges(amount: number = 1): Promise<{
@@ -130,8 +141,7 @@ export async function addDevBreedingCharges(amount: number = 1): Promise<{
       addBreedingCharges: amount
     })
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
+  return await handleApiResponse(res);
 }
 
 export async function startExperiment(
@@ -149,9 +159,7 @@ export async function startExperiment(
     },
     body: JSON.stringify({ type, approach })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function useGhostSight(target: 'A' | 'B'): Promise<{
@@ -166,9 +174,7 @@ export async function useGhostSight(target: 'A' | 'B'): Promise<{
     },
     body: JSON.stringify({ target })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function revealExperiment(chosenState: 'A' | 'B' = 'A'): Promise<{
@@ -184,9 +190,7 @@ export async function revealExperiment(chosenState: 'A' | 'B' = 'A'): Promise<{
     },
     body: JSON.stringify({ chosenState })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function unlockResearch(upgradeId: string): Promise<{
@@ -201,9 +205,7 @@ export async function unlockResearch(upgradeId: string): Promise<{
     },
     body: JSON.stringify({ upgradeId })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function synthesizeResearchNotes(
@@ -217,9 +219,7 @@ export async function synthesizeResearchNotes(
     },
     body: JSON.stringify({ action })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function assignAssistant(speciesId: string): Promise<{ player: PlayerState }> {
@@ -231,9 +231,7 @@ export async function assignAssistant(speciesId: string): Promise<{ player: Play
     },
     body: JSON.stringify({ speciesId })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function renameHamster(hamsterId: string, nickname: string): Promise<{
@@ -248,9 +246,7 @@ export async function renameHamster(hamsterId: string, nickname: string): Promis
     },
     body: JSON.stringify({ hamsterId, nickname })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function toggleFavoriteHamster(hamsterId: string): Promise<{
@@ -265,9 +261,7 @@ export async function toggleFavoriteHamster(hamsterId: string): Promise<{
     },
     body: JSON.stringify({ hamsterId })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function assignAssistantHamster(hamsterId: string): Promise<{
@@ -282,15 +276,12 @@ export async function assignAssistantHamster(hamsterId: string): Promise<{
     },
     body: JSON.stringify({ hamsterId })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function fetchTelemetry(): Promise<SqueekTelemetry> {
   const res = await fetch(`${BASE_URL}/telemetry`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
+  return await handleApiResponse(res);
 }
 
 export async function resetLab(): Promise<{ player: PlayerState }> {
@@ -301,8 +292,7 @@ export async function resetLab(): Promise<{ player: PlayerState }> {
       'X-Player-ID': getPlayerId()
     }
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
+  return await handleApiResponse(res);
 }
 
 // Quantum Genetics & Incubation
@@ -319,11 +309,14 @@ export async function startIncubationApi(
       'Content-Type': 'application/json',
       'X-Player-ID': getPlayerId()
     },
-    body: JSON.stringify({ parent1Species, parent2Species })
+    body: JSON.stringify({
+      parent1Species,
+      parent2Species,
+      parent1Id: parent1Species,
+      parent2Id: parent2Species
+    })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function useIncubationGhostSightApi(target: 'A' | 'B'): Promise<{
@@ -338,9 +331,7 @@ export async function useIncubationGhostSightApi(target: 'A' | 'B'): Promise<{
     },
     body: JSON.stringify({ target })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function revealIncubationApi(chosenState: 'A' | 'B'): Promise<{
@@ -356,9 +347,7 @@ export async function revealIncubationApi(chosenState: 'A' | 'B'): Promise<{
     },
     body: JSON.stringify({ chosenState })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function renameHybridApi(
@@ -376,9 +365,7 @@ export async function renameHybridApi(
     },
     body: JSON.stringify({ hybridId, nickname })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function toggleFavoriteHybridApi(hybridId: string): Promise<{
@@ -393,9 +380,7 @@ export async function toggleFavoriteHybridApi(hybridId: string): Promise<{
     },
     body: JSON.stringify({ hybridId })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function releaseHybridApi(hybridId: string): Promise<{
@@ -411,9 +396,7 @@ export async function releaseHybridApi(hybridId: string): Promise<{
     },
     body: JSON.stringify({ hybridId })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function setLabDisplayHybridApi(hybridId: string | null): Promise<{
@@ -428,9 +411,7 @@ export async function setLabDisplayHybridApi(hybridId: string | null): Promise<{
     },
     body: JSON.stringify({ hybridId })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function triggerFateTestApi(
@@ -448,9 +429,7 @@ export async function triggerFateTestApi(
     },
     body: JSON.stringify({ type, hybridId })
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function dismissFateIncidentsApi(): Promise<{
@@ -464,20 +443,14 @@ export async function dismissFateIncidentsApi(): Promise<{
       'X-Player-ID': getPlayerId()
     }
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return await handleApiResponse(res);
 }
 
 export async function exportPlayerBackup(): Promise<any> {
   const res = await fetch(`${BASE_URL}/backup/export`, {
     headers: getAuthHeaders()
   });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.message || data.error || `HTTP ${res.status}`);
-  }
-  return await res.json();
+  return await handleApiResponse(res);
 }
 
 export async function validatePlayerBackup(backup: any): Promise<{
@@ -529,9 +502,5 @@ export async function importPlayerBackup(backup: any): Promise<{
     headers: customHeaders,
     body: JSON.stringify({ backup })
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.message || data.error || `HTTP ${res.status}`);
-  }
-  return data;
+  return await handleApiResponse(res);
 }

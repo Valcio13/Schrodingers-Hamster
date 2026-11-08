@@ -276,6 +276,16 @@ export const App: React.FC = () => {
     (window as any).__addDevBreedingCharge = handleDevAddBreedingCharges;
   }, [handleDevSetBatteryPercentage, handleDevSetBatteryCapacity, handleDevSetActivityRpm, handleDevSetBreedingCharges, handleDevAddBreedingCharges]);
 
+  // Centralized API Error Handling with Optimistic Concurrency Recovery
+  const handleApiError = useCallback((err: any, fallbackMessage: string) => {
+    if (err?.status === 409 || err?.code === 'CONCURRENT_SAVE_CONFLICT') {
+      setErrorMsg('A concurrent update was detected. Synchronizing latest authoritative laboratory state...');
+      fetchPlayerState().then(setPlayer).catch(console.error);
+      return;
+    }
+    setErrorMsg(err?.message || fallbackMessage);
+  }, []);
+
   // Handlers
   const handleSyncWork = async () => {
     setIsSyncing(true);
@@ -287,7 +297,7 @@ export const App: React.FC = () => {
         triggerBonusNotification(syncRes.squeekEnergyEarned);
       }
     } catch (err: any) {
-      setErrorMsg('Failed to sync Squeekchain work.');
+      handleApiError(err, 'Failed to sync Squeekchain work.');
     } finally {
       setIsSyncing(false);
     }
@@ -303,16 +313,21 @@ export const App: React.FC = () => {
       setPlayer(res.player);
       audio.playZap();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not initiate experiment.');
+      handleApiError(err, 'Could not initiate experiment.');
     } finally {
       setIsStartingExp(false);
     }
   };
 
   const handleRevealExperiment = async (chosenState: 'A' | 'B' = 'A') => {
-    const res = await revealExperiment(chosenState);
-    setPlayer(res.player);
-    return { outcome: res.outcome, chosenState: res.chosenState };
+    try {
+      const res = await revealExperiment(chosenState);
+      setPlayer(res.player);
+      return { outcome: res.outcome, chosenState: res.chosenState };
+    } catch (err: any) {
+      handleApiError(err, 'Could not reveal experiment outcome.');
+      throw err;
+    }
   };
 
   const handleGhostSight = async (target: 'A' | 'B') => {
@@ -321,7 +336,7 @@ export const App: React.FC = () => {
       setPlayer(prev => prev ? { ...prev, activeExperiment: res.activeExperiment } : null);
       audio.playCharge();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not use Quantum Sight.');
+      handleApiError(err, 'Could not use Quantum Sight.');
     }
   };
 
@@ -338,7 +353,7 @@ export const App: React.FC = () => {
         audio.playCharge();
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to synthesize research notes.');
+      handleApiError(err, 'Failed to synthesize research notes.');
     } finally {
       setIsSynthesizing(false);
     }
@@ -373,7 +388,7 @@ export const App: React.FC = () => {
         });
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not unlock research.');
+      handleApiError(err, 'Could not unlock research.');
     } finally {
       setIsUnlocking(false);
     }
@@ -386,7 +401,7 @@ export const App: React.FC = () => {
       setPlayer(res.player);
       audio.playClick();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not assign assistant.');
+      handleApiError(err, 'Could not assign assistant.');
     } finally {
       setIsAssigning(false);
     }
@@ -397,7 +412,7 @@ export const App: React.FC = () => {
       const res = await renameHamster(hamsterId, nickname);
       setPlayer(res.player);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not rename hamster.');
+      handleApiError(err, 'Could not rename hamster.');
     }
   };
 
@@ -406,7 +421,7 @@ export const App: React.FC = () => {
       const res = await toggleFavoriteHamster(hamsterId);
       setPlayer(res.player);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not toggle favorite.');
+      handleApiError(err, 'Could not toggle favorite.');
     }
   };
 
@@ -417,7 +432,7 @@ export const App: React.FC = () => {
       setPlayer(res.player);
       audio.playClick();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not assign assistant.');
+      handleApiError(err, 'Could not assign assistant.');
     } finally {
       setIsAssigning(false);
     }
@@ -431,7 +446,7 @@ export const App: React.FC = () => {
       setPlayer(res.player);
       audio.playZap();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not initiate incubation.');
+      handleApiError(err, 'Could not initiate incubation.');
     } finally {
       setIsStartingIncubation(false);
     }
@@ -443,14 +458,19 @@ export const App: React.FC = () => {
       setPlayer(prev => prev ? { ...prev, activeIncubation: res.activeIncubation } : null);
       audio.playCharge();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not use Quantum Sight.');
+      handleApiError(err, 'Could not use Quantum Sight.');
     }
   };
 
   const handleRevealIncubation = async (chosenState: 'A' | 'B') => {
-    const res = await revealIncubationApi(chosenState);
-    setPlayer(res.player);
-    return { hybrid: res.hybrid, chosenState: res.chosenState };
+    try {
+      const res = await revealIncubationApi(chosenState);
+      setPlayer(res.player);
+      return { hybrid: res.hybrid, chosenState: res.chosenState };
+    } catch (err: any) {
+      handleApiError(err, 'Could not reveal incubation.');
+      throw err;
+    }
   };
 
   const handleRenameHybrid = async (hybridId: string, nickname: string) => {
@@ -458,7 +478,7 @@ export const App: React.FC = () => {
       const res = await renameHybridApi(hybridId, nickname);
       setPlayer(res.player);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not rename hybrid.');
+      handleApiError(err, 'Could not rename hybrid.');
     }
   };
 
@@ -467,7 +487,7 @@ export const App: React.FC = () => {
       const res = await toggleFavoriteHybridApi(hybridId);
       setPlayer(res.player);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not toggle favorite.');
+      handleApiError(err, 'Could not toggle favorite.');
     }
   };
 
@@ -476,7 +496,7 @@ export const App: React.FC = () => {
       const res = await releaseHybridApi(hybridId);
       setPlayer(res.player);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not release hybrid.');
+      handleApiError(err, 'Could not release hybrid.');
     }
   };
 
@@ -485,7 +505,7 @@ export const App: React.FC = () => {
       const res = await setLabDisplayHybridApi(hybridId);
       setPlayer(res.player);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not update lab display companion.');
+      handleApiError(err, 'Could not update lab display companion.');
     }
   };
 
@@ -1375,7 +1395,8 @@ export const App: React.FC = () => {
         onRestoreSuccess={(restored) => {
           setPlayer(restored);
           if (!sessionStorage.getItem('squeek_session_token')) {
-            localStorage.setItem('hamster_guest_player_id', restored.id);
+            localStorage.setItem('squeek_player_id', restored.id);
+            localStorage.removeItem('hamster_guest_player_id');
           }
         }}
       />

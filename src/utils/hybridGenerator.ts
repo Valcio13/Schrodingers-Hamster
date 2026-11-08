@@ -16,7 +16,9 @@ import {
   HybridPalette,
   HamsterPersonality,
   HAMSTER_PERSONALITIES,
-  HYBRID_RARITY_WEIGHTS
+  HYBRID_RARITY_WEIGHTS,
+  HAMSTER_SPECIES,
+  PlayerState
 } from '../types/game';
 
 // Base Species Palettes for Inheritance
@@ -555,6 +557,12 @@ export function generateQuantumHybrid(
     discoveredAt,
     isFavorite: false,
     traits,
+    generation: 1,
+    parent1Id: parent1Species,
+    parent2Id: parent2Species,
+    parent1Name: HAMSTER_SPECIES[parent1Species]?.name || parent1Species,
+    parent2Name: HAMSTER_SPECIES[parent2Species]?.name || parent2Species,
+    ancestryLineage: `${HAMSTER_SPECIES[parent1Species]?.name || parent1Species} × ${HAMSTER_SPECIES[parent2Species]?.name || parent2Species} (Gen 1)`,
     existenceStatus: 'alive',
     missingSince: null,
     expectedReturnAt: null,
@@ -567,6 +575,512 @@ export function generateQuantumHybrid(
         timestamp: discoveredAt,
         title: 'Quantum Genesis',
         description: `Synthesized from ${parent1Species.toUpperCase()} × ${parent2Species.toUpperCase()} in the Quantum Incubator.`
+      }
+    ]
+  };
+}
+
+export interface BreedingParentDescriptor {
+  id: string;
+  name: string;
+  isBase: boolean;
+  speciesId?: string;
+  generation?: 1 | 2;
+  traits?: HybridCosmeticTraits;
+  rarity?: HybridRarity;
+  personality?: HamsterPersonality;
+  hybrid?: QuantumHybrid;
+}
+
+export function createParentDescriptor(
+  player: PlayerState,
+  parentIdOrSpecies: string
+): BreedingParentDescriptor {
+  // Check if it's a base species ID (e.g. 'normal', 'quantum')
+  if (HAMSTER_SPECIES[parentIdOrSpecies]) {
+    const spec = HAMSTER_SPECIES[parentIdOrSpecies];
+    return {
+      id: parentIdOrSpecies,
+      name: spec.name,
+      isBase: true,
+      speciesId: parentIdOrSpecies,
+      generation: 1
+    };
+  }
+
+  // Check if it's a hybrid in player collection
+  const hybrid = (player.hybrids || []).find((h: QuantumHybrid) => h.id === parentIdOrSpecies);
+  if (hybrid) {
+    if (hybrid.existenceStatus === 'deceased' || hybrid.existenceStatus === 'missing') {
+      throw new Error(`Parent specimen "${hybrid.nickname || hybrid.generatedName}" cannot breed because it is ${hybrid.existenceStatus}.`);
+    }
+    return {
+      id: hybrid.id,
+      name: hybrid.nickname || hybrid.generatedName || 'Hybrid Hamster',
+      isBase: false,
+      speciesId: hybrid.parent1Species,
+      generation: hybrid.generation || 1,
+      traits: hybrid.traits,
+      rarity: hybrid.rarity,
+      personality: hybrid.personality,
+      hybrid
+    };
+  }
+
+  // Check companion in hamsters list
+  const hamster = (player.hamsters || []).find((h: any) => h.id === parentIdOrSpecies || h.speciesId === parentIdOrSpecies);
+  if (hamster && HAMSTER_SPECIES[hamster.speciesId]) {
+    const spec = HAMSTER_SPECIES[hamster.speciesId];
+    return {
+      id: hamster.speciesId,
+      name: hamster.nickname || spec.name,
+      isBase: true,
+      speciesId: hamster.speciesId,
+      generation: 1
+    };
+  }
+
+  throw new Error(`Parent specimen "${parentIdOrSpecies}" not found in player collection.`);
+}
+
+/**
+ * Multi-Generation Hybrid Generator:
+ * Base × Base → Gen 1
+ * Base × Gen 1 → Gen 2
+ * Gen 1 × Gen 1 → Gen 2
+ * Gen 2 cannot breed.
+ * Maximum 4 active mutations.
+ */
+export function generateMultiGenHybrid(
+  playerId: string,
+  parent1: BreedingParentDescriptor,
+  parent2: BreedingParentDescriptor,
+  seed: number = Math.floor(Math.random() * 1000000000)
+): QuantumHybrid {
+  if (parent1.id === parent2.id) {
+    throw new Error('Cannot select the same specimen twice as both parents.');
+  }
+
+  const p1Gen = parent1.generation || (parent1.isBase ? 1 : 1);
+  const p2Gen = parent2.generation || (parent2.isBase ? 1 : 1);
+
+  if ((!parent1.isBase && p1Gen >= 2) || (!parent2.isBase && p2Gen >= 2)) {
+    throw new Error('Generation 2 hamsters cannot breed.');
+  }
+
+  // Base × Base produces Gen 1; Any pairing with Gen 1 produces Gen 2
+  const childGen: 1 | 2 = (parent1.isBase && parent2.isBase) ? 1 : 2;
+
+  // For pure Base × Base, preserve exact mathematical output of generateQuantumHybrid
+  if (childGen === 1) {
+    const p1Spec = parent1.speciesId || parent1.id;
+    const p2Spec = parent2.speciesId || parent2.id;
+    return generateQuantumHybrid(playerId, p1Spec, p2Spec, seed);
+  }
+
+  const rand = createPrng(seed);
+  const generatorVersion = 2;
+
+  // Retrieve parent palettes
+  const p1Palette = parent1.isBase
+    ? (BASE_PALETTES[parent1.speciesId || parent1.id] || BASE_PALETTES.normal)
+    : (parent1.traits?.palette || BASE_PALETTES.normal);
+
+  const p2Palette = parent2.isBase
+    ? (BASE_PALETTES[parent2.speciesId || parent2.id] || BASE_PALETTES.normal)
+    : (parent2.traits?.palette || BASE_PALETTES.normal);
+
+  // Preserve existing rarity probabilities
+  const rarity = rollHybridRarity(rand);
+  const personality: HamsterPersonality = HAMSTER_PERSONALITIES[Math.floor(rand() * HAMSTER_PERSONALITIES.length)];
+
+  // Palette blend
+  const blendRatio = 0.25 + rand() * 0.5;
+  let bodyColor = interpolateHex(p1Palette.body, p2Palette.body, blendRatio);
+  let darkColor = interpolateHex(p1Palette.dark, p2Palette.dark, blendRatio);
+  let lightColor = interpolateHex(p1Palette.light, p2Palette.light, blendRatio);
+  let accentColor = rand() < 0.5 ? p1Palette.accent : p2Palette.accent;
+  let glowColor = rand() < 0.5 ? p1Palette.glow : p2Palette.glow;
+
+  if (rarity === 'mythic') {
+    glowColor = 'rgba(255, 255, 255, 0.85)';
+    accentColor = '#ffffff';
+  } else if (rarity === 'legendary') {
+    glowColor = 'rgba(168, 85, 247, 0.75)';
+  }
+
+  // Inherit or roll Fur Pattern
+  let furPattern: FurPattern;
+  const parentPatterns = [parent1.traits?.furPattern, parent2.traits?.furPattern].filter(Boolean) as FurPattern[];
+  if (parentPatterns.length > 0 && rand() < 0.40) {
+    furPattern = parentPatterns[Math.floor(rand() * parentPatterns.length)];
+  } else if (rarity === 'mythic') {
+    furPattern = rand() < 0.5 ? 'void_nebula' : 'quantum_swirl';
+  } else if (rarity === 'legendary') {
+    const choices: FurPattern[] = ['void_nebula', 'quantum_swirl', 'circuit_marks'];
+    furPattern = choices[Math.floor(rand() * choices.length)];
+  } else if (rarity === 'epic') {
+    const choices: FurPattern[] = ['quantum_swirl', 'circuit_marks', 'split_half', 'striped'];
+    furPattern = choices[Math.floor(rand() * choices.length)];
+  } else if (rarity === 'rare') {
+    const choices: FurPattern[] = ['striped', 'split_half', 'spotted', 'circuit_marks'];
+    furPattern = choices[Math.floor(rand() * choices.length)];
+  } else if (rarity === 'uncommon') {
+    const choices: FurPattern[] = ['spotted', 'striped', 'split_half'];
+    furPattern = choices[Math.floor(rand() * choices.length)];
+  } else {
+    furPattern = rand() < 0.5 ? 'solid' : 'spotted';
+  }
+
+  // Inherit or roll Body Shape
+  let bodyShape: BodyShape;
+  const parentShapes = [parent1.traits?.bodyShape, parent2.traits?.bodyShape].filter(Boolean) as BodyShape[];
+  if (parentShapes.length > 0 && rand() < 0.65) {
+    bodyShape = parentShapes[Math.floor(rand() * parentShapes.length)];
+  } else {
+    const bodyShapes: BodyShape[] = ['standard', 'chubby', 'sleek', 'round'];
+    bodyShape = bodyShapes[Math.floor(rand() * bodyShapes.length)];
+  }
+
+  // Inherit or roll Ear Shape
+  let earShape: EarShape;
+  const parentEars = [parent1.traits?.earShape, parent2.traits?.earShape].filter(Boolean) as EarShape[];
+  if (parentEars.length > 0 && rand() < 0.65) {
+    earShape = parentEars[Math.floor(rand() * parentEars.length)];
+  } else {
+    const standardEars: EarShape[] = ['round', 'tufted', 'folded'];
+    earShape = standardEars[Math.floor(rand() * standardEars.length)];
+  }
+
+  // Inherit or roll Eye Color
+  let eyeColor = '#1b1c22';
+  const parentEyes = [parent1.traits?.eyeColor, parent2.traits?.eyeColor].filter(Boolean) as string[];
+  if (parentEyes.length > 0 && rand() < 0.60) {
+    eyeColor = parentEyes[Math.floor(rand() * parentEyes.length)];
+  } else if (rarity === 'mythic') {
+    eyeColor = '#ffffff';
+  } else if (rarity === 'legendary') {
+    eyeColor = rand() < 0.5 ? '#00f0ff' : '#ff007f';
+  } else if (rarity === 'epic' || rarity === 'rare') {
+    const eyePalette = ['#00f0ff', '#ffeb3b', '#64ffda', '#ff4081', '#a1ff0a', '#1b1c22'];
+    eyeColor = eyePalette[Math.floor(rand() * eyePalette.length)];
+  }
+
+  // Quantum Effect
+  let quantumEffect: QuantumEffect = 'none';
+  if (rarity === 'mythic') {
+    quantumEffect = 'cosmic_singularity';
+  } else if (rarity === 'legendary') {
+    quantumEffect = rand() < 0.5 ? 'paradox_rings' : 'cosmic_singularity';
+  } else if (rarity === 'epic') {
+    const effects: QuantumEffect[] = ['glitch_flicker', 'plasma_glow', 'paradox_rings'];
+    quantumEffect = effects[Math.floor(rand() * effects.length)];
+  } else if (rarity === 'rare') {
+    const effects: QuantumEffect[] = ['spark_halo', 'ghost_shimmer', 'glitch_flicker', 'plasma_glow'];
+    quantumEffect = effects[Math.floor(rand() * effects.length)];
+  } else if (rarity === 'uncommon') {
+    const effects: QuantumEffect[] = ['spark_halo', 'ghost_shimmer', 'none'];
+    quantumEffect = effects[Math.floor(rand() * effects.length)];
+  }
+
+  // Active Mutations & Inheritance
+  const p1Species = parent1.speciesId || (parent1.hybrid ? parent1.hybrid.parent1Species : 'normal');
+  const p2Species = parent2.speciesId || (parent2.hybrid ? parent2.hybrid.parent2Species : 'normal');
+  const hasParadox = p1Species === 'paradox' || p2Species === 'paradox';
+  const hasGlitch = p1Species === 'glitch' || p2Species === 'glitch';
+  const hasElectric = p1Species === 'electric' || p2Species === 'electric';
+  const hasGhost = p1Species === 'ghost' || p2Species === 'ghost';
+  const hasPlasma = p1Species === 'plasma' || p2Species === 'plasma';
+
+  // 1. Eye Mutation
+  let eyeMutation: EyeMutation = 'normal';
+  if (parent1.traits?.eyeMutation && parent1.traits.eyeMutation !== 'normal' && rand() < 0.35) {
+    eyeMutation = parent1.traits.eyeMutation;
+  } else if (parent2.traits?.eyeMutation && parent2.traits.eyeMutation !== 'normal' && rand() < 0.35) {
+    eyeMutation = parent2.traits.eyeMutation;
+  } else {
+    // Novel roll
+    if (rarity === 'mythic') {
+      const roll = rand();
+      if (roll < 0.45) eyeMutation = 'cyclops';
+      else if (roll < 0.75) eyeMutation = 'five_eyed';
+      else eyeMutation = 'glowing_eyes';
+    } else if (rarity === 'legendary') {
+      const roll = rand();
+      if (roll < 0.35) eyeMutation = 'cyclops';
+      else if (roll < 0.60) eyeMutation = 'tri_eye';
+      else if (roll < 0.85) eyeMutation = 'five_eyed';
+      else eyeMutation = 'glowing_eyes';
+    } else if (rarity === 'epic') {
+      const roll = rand();
+      if (hasParadox && roll < 0.35) eyeMutation = 'five_eyed';
+      else if (roll < 0.30) eyeMutation = 'tri_eye';
+      else if (roll < 0.55) eyeMutation = 'heterochromia';
+      else if (roll < 0.75) eyeMutation = 'glowing_eyes';
+    } else if (rarity === 'rare') {
+      const roll = rand();
+      if (hasParadox && roll < 0.25) eyeMutation = 'cyclops';
+      else if (roll < 0.25) eyeMutation = 'tri_eye';
+      else if (hasGlitch || roll < 0.45) eyeMutation = 'heterochromia';
+      else if (hasElectric && roll < 0.65) eyeMutation = 'glowing_eyes';
+    } else if (rarity === 'uncommon') {
+      if (hasGlitch && rand() < 0.30) eyeMutation = 'heterochromia';
+      else if (rand() < 0.15) eyeMutation = 'tri_eye';
+    }
+  }
+
+  // 2. Head Mutation
+  let headMutation: HeadMutation = 'none';
+  if (parent1.traits?.headMutation && parent1.traits.headMutation !== 'none' && rand() < 0.35) {
+    headMutation = parent1.traits.headMutation;
+  } else if (parent2.traits?.headMutation && parent2.traits.headMutation !== 'none' && rand() < 0.35) {
+    headMutation = parent2.traits.headMutation;
+  } else {
+    if (rarity === 'mythic') {
+      headMutation = rand() < 0.5 ? 'crystal_horns' : 'two_horns';
+    } else if (rarity === 'legendary') {
+      const roll = rand();
+      if (roll < 0.35) headMutation = 'crystal_horns';
+      else if (roll < 0.65) headMutation = 'two_horns';
+      else if (roll < 0.85) headMutation = 'small_antlers';
+      else headMutation = 'single_horn';
+    } else if (rarity === 'epic') {
+      const roll = rand();
+      if (roll < 0.30) headMutation = 'two_horns';
+      else if (roll < 0.55) headMutation = 'crystal_horns';
+      else if (roll < 0.75) headMutation = 'small_antlers';
+      else if (roll < 0.90) headMutation = 'quantum_antennae';
+    } else if (rarity === 'rare') {
+      const roll = rand();
+      if (roll < 0.25) headMutation = 'two_horns';
+      else if (roll < 0.45) headMutation = 'single_horn';
+      else if (roll < 0.65) headMutation = 'extra_ears';
+    } else if (rarity === 'uncommon') {
+      const roll = rand();
+      if (roll < 0.20) headMutation = 'single_horn';
+      else if (roll < 0.35) headMutation = 'extra_ears';
+    }
+  }
+
+  // 3. Limb Mutation
+  let limbMutation: LimbMutation = 'normal';
+  if (parent1.traits?.limbMutation && parent1.traits.limbMutation !== 'normal' && rand() < 0.35) {
+    limbMutation = parent1.traits.limbMutation;
+  } else if (parent2.traits?.limbMutation && parent2.traits.limbMutation !== 'normal' && rand() < 0.35) {
+    limbMutation = parent2.traits.limbMutation;
+  } else {
+    if (rarity === 'mythic' || rarity === 'legendary') {
+      if (hasGhost || rand() < 0.40) limbMutation = 'missing_hind_legs';
+      else if (rand() < 0.35) limbMutation = 'oversized_paws';
+    } else if (rarity === 'epic') {
+      if (hasGhost && rand() < 0.45) limbMutation = 'missing_hind_legs';
+      else if (rand() < 0.30) limbMutation = 'oversized_paws';
+      else if (rand() < 0.25) limbMutation = 'tiny_forepaws';
+    } else if (rarity === 'rare') {
+      if (hasGhost && rand() < 0.35) limbMutation = 'missing_hind_legs';
+      else if (rand() < 0.25) limbMutation = 'oversized_paws';
+    } else if (rarity === 'uncommon') {
+      if (rand() < 0.20) limbMutation = 'tiny_forepaws';
+    }
+  }
+
+  // 4. Body Mutation
+  let bodyMutation: BodyMutation = 'normal';
+  if (parent1.traits?.bodyMutation && parent1.traits.bodyMutation !== 'normal' && rand() < 0.35) {
+    bodyMutation = parent1.traits.bodyMutation;
+  } else if (parent2.traits?.bodyMutation && parent2.traits.bodyMutation !== 'normal' && rand() < 0.35) {
+    bodyMutation = parent2.traits.bodyMutation;
+  } else {
+    if (hasGhost && (rarity === 'epic' || rarity === 'legendary' || rarity === 'mythic') && rand() < 0.50) {
+      bodyMutation = 'ghost_body';
+    } else if (hasGlitch && rand() < 0.40) {
+      bodyMutation = 'glitch_fur';
+    } else if ((rarity === 'legendary' || rarity === 'epic') && rand() < 0.35) {
+      bodyMutation = 'crystal_patches';
+    } else if (rand() < 0.25) {
+      bodyMutation = 'extra_fluffy';
+    }
+  }
+
+  // 5. Tail Mutation
+  let tailMutation: TailMutation = 'none';
+  if (parent1.traits?.tailMutation && parent1.traits.tailMutation !== 'none' && rand() < 0.35) {
+    tailMutation = parent1.traits.tailMutation;
+  } else if (parent2.traits?.tailMutation && parent2.traits.tailMutation !== 'none' && rand() < 0.35) {
+    tailMutation = parent2.traits.tailMutation;
+  } else {
+    if (rarity === 'mythic') {
+      tailMutation = rand() < 0.6 ? 'bat_wings' : 'moth_wings';
+    } else if (rarity === 'legendary') {
+      const roll = rand();
+      if (roll < 0.40) tailMutation = 'bat_wings';
+      else if (roll < 0.70) tailMutation = 'crystal_tail';
+      else if (roll < 0.90) tailMutation = 'moth_wings';
+    } else if (rarity === 'epic') {
+      const roll = rand();
+      if (hasPlasma && roll < 0.40) tailMutation = 'bat_wings';
+      else if (roll < 0.30) tailMutation = 'crystal_tail';
+      else if (hasGhost && roll < 0.60) tailMutation = 'spectral_tail';
+      else if (roll < 0.80) tailMutation = 'forked_tail';
+    } else if (rarity === 'rare') {
+      const roll = rand();
+      if (hasElectric && roll < 0.40) tailMutation = 'glowing_tail';
+      else if (roll < 0.30) tailMutation = 'long_tail';
+      else if (roll < 0.55) tailMutation = 'forked_tail';
+    } else if (rarity === 'uncommon') {
+      if (rand() < 0.25) tailMutation = 'long_tail';
+    }
+  }
+
+  // 6. Aura Effect
+  let auraEffect: AuraEffect = 'none';
+  if (parent1.traits?.auraEffect && parent1.traits.auraEffect !== 'none' && rand() < 0.35) {
+    auraEffect = parent1.traits.auraEffect;
+  } else if (parent2.traits?.auraEffect && parent2.traits.auraEffect !== 'none' && rand() < 0.35) {
+    auraEffect = parent2.traits.auraEffect;
+  } else {
+    if (rarity === 'mythic') {
+      auraEffect = rand() < 0.5 ? 'cosmic' : 'void';
+    } else if (rarity === 'legendary') {
+      const roll = rand();
+      if (roll < 0.40) auraEffect = 'cosmic';
+      else if (roll < 0.70) auraEffect = 'crystal';
+      else if (roll < 0.90) auraEffect = 'void';
+      else auraEffect = 'solar';
+    } else if (rarity === 'epic') {
+      const roll = rand();
+      if (hasPlasma && roll < 0.45) auraEffect = 'plasma';
+      else if (hasElectric && roll < 0.70) auraEffect = 'electric';
+      else if (hasGhost && roll < 0.85) auraEffect = 'ghost';
+      else if (roll < 0.90) auraEffect = 'solar';
+    } else if (rarity === 'rare') {
+      const roll = rand();
+      if (hasElectric && roll < 0.40) auraEffect = 'electric';
+      else if (hasGhost && roll < 0.70) auraEffect = 'ghost';
+      else if (hasGlitch && roll < 0.90) auraEffect = 'glitch';
+    }
+  }
+
+  // Collect candidate active mutations
+  const mutationEntries: { category: string; label: string }[] = [];
+  if (eyeMutation === 'cyclops') mutationEntries.push({ category: 'eye', label: 'ONE EYE' });
+  else if (eyeMutation === 'five_eyed') mutationEntries.push({ category: 'eye', label: 'FIVE EYES' });
+  else if (eyeMutation === 'tri_eye') mutationEntries.push({ category: 'eye', label: 'THIRD EYE' });
+  else if (eyeMutation === 'heterochromia') mutationEntries.push({ category: 'eye', label: 'HETEROCHROMIA' });
+  else if (eyeMutation === 'glowing_eyes') mutationEntries.push({ category: 'eye', label: 'GLOWING EYES' });
+
+  if (headMutation === 'crystal_horns') mutationEntries.push({ category: 'head', label: 'CRYSTAL HORNS' });
+  else if (headMutation === 'two_horns') mutationEntries.push({ category: 'head', label: 'DUAL HORNS' });
+  else if (headMutation === 'single_horn') mutationEntries.push({ category: 'head', label: 'UNICORN HORN' });
+  else if (headMutation === 'small_antlers') mutationEntries.push({ category: 'head', label: 'ANTLERS' });
+  else if (headMutation === 'quantum_antennae') mutationEntries.push({ category: 'head', label: 'ANTENNAE' });
+  else if (headMutation === 'extra_ears') mutationEntries.push({ category: 'head', label: 'FOUR EARS' });
+
+  if (limbMutation === 'missing_hind_legs') mutationEntries.push({ category: 'limb', label: 'FLOATING BODY' });
+  else if (limbMutation === 'oversized_paws') mutationEntries.push({ category: 'limb', label: 'OVERSIZED PAWS' });
+  else if (limbMutation === 'tiny_forepaws') mutationEntries.push({ category: 'limb', label: 'TINY FOREPAWS' });
+
+  if (bodyMutation === 'ghost_body') mutationEntries.push({ category: 'body', label: 'GHOST BODY' });
+  else if (bodyMutation === 'crystal_patches') mutationEntries.push({ category: 'body', label: 'CRYSTAL PATCHES' });
+  else if (bodyMutation === 'glitch_fur') mutationEntries.push({ category: 'body', label: 'GLITCH FUR' });
+  else if (bodyMutation === 'extra_fluffy') mutationEntries.push({ category: 'body', label: 'EXTRA FLUFFY' });
+
+  if (tailMutation === 'bat_wings') mutationEntries.push({ category: 'tail', label: 'BAT WINGS' });
+  else if (tailMutation === 'moth_wings') mutationEntries.push({ category: 'tail', label: 'MOTH WINGS' });
+  else if (tailMutation === 'crystal_tail') mutationEntries.push({ category: 'tail', label: 'CRYSTAL TAIL' });
+  else if (tailMutation === 'glowing_tail') mutationEntries.push({ category: 'tail', label: 'GLOWING TAIL' });
+  else if (tailMutation === 'spectral_tail') mutationEntries.push({ category: 'tail', label: 'SPECTRAL TAIL' });
+  else if (tailMutation === 'forked_tail') mutationEntries.push({ category: 'tail', label: 'FORKED TAIL' });
+  else if (tailMutation === 'long_tail') mutationEntries.push({ category: 'tail', label: 'LONG TAIL' });
+
+  if (auraEffect === 'electric') mutationEntries.push({ category: 'aura', label: 'ELECTRIC AURA' });
+  else if (auraEffect === 'ghost') mutationEntries.push({ category: 'aura', label: 'GHOST AURA' });
+  else if (auraEffect === 'plasma') mutationEntries.push({ category: 'aura', label: 'PLASMA AURA' });
+  else if (auraEffect === 'glitch') mutationEntries.push({ category: 'aura', label: 'GLITCH AURA' });
+  else if (auraEffect === 'cosmic') mutationEntries.push({ category: 'aura', label: 'COSMIC AURA' });
+  else if (auraEffect === 'crystal') mutationEntries.push({ category: 'aura', label: 'CRYSTAL AURA' });
+  else if (auraEffect === 'solar') mutationEntries.push({ category: 'aura', label: 'SOLAR AURA' });
+  else if (auraEffect === 'void') mutationEntries.push({ category: 'aura', label: 'VOID AURA' });
+
+  // HARD CAP: Maximum four active mutations
+  const cappedEntries = mutationEntries.slice(0, 4);
+  const activeMutationsList = cappedEntries.map(e => e.label);
+  const retainedCategories = new Set(cappedEntries.map(e => e.category));
+
+  if (!retainedCategories.has('eye')) eyeMutation = 'normal';
+  if (!retainedCategories.has('head')) headMutation = 'none';
+  if (!retainedCategories.has('limb')) limbMutation = 'normal';
+  if (!retainedCategories.has('body')) bodyMutation = 'normal';
+  if (!retainedCategories.has('tail')) tailMutation = 'none';
+  if (!retainedCategories.has('aura')) auraEffect = 'none';
+
+  let cosmeticMutation: CosmeticMutation = 'none';
+  if (tailMutation === 'bat_wings' || tailMutation === 'moth_wings') cosmeticMutation = 'energy_wings';
+  else if (tailMutation === 'crystal_tail') cosmeticMutation = 'crystal_tail';
+  else if (headMutation === 'two_horns' || headMutation === 'single_horn' || headMutation === 'crystal_horns') cosmeticMutation = 'tiny_horns';
+  else if (eyeMutation === 'tri_eye') cosmeticMutation = 'third_eye';
+  else if (auraEffect === 'cosmic' || auraEffect === 'void') cosmeticMutation = 'floating_orbs';
+
+  const traits: HybridCosmeticTraits = {
+    palette: {
+      body: bodyColor,
+      dark: darkColor,
+      light: lightColor,
+      accent: accentColor,
+      glow: glowColor
+    },
+    furPattern,
+    bodyShape,
+    earShape,
+    eyeColor,
+    quantumEffect,
+    cosmeticMutation,
+    eyeMutation,
+    headMutation,
+    limbMutation,
+    bodyMutation,
+    tailMutation,
+    auraEffect,
+    activeMutations: activeMutationsList
+  };
+
+  const { fullDisplayName } = generateProceduralHybridName(traits, p1Species, p2Species, rarity, rand);
+  const discoveredAt = Date.now();
+  const id = `hybrid_${playerId}_${discoveredAt}_${Math.random().toString(36).substring(2, 7)}`;
+  const ancestryLineage = `${parent1.name} × ${parent2.name} (Gen ${childGen})`;
+
+  return {
+    id,
+    playerId,
+    generatorVersion,
+    seed,
+    parent1Species: p1Species,
+    parent2Species: p2Species,
+    nickname: fullDisplayName,
+    generatedName: fullDisplayName,
+    personality,
+    rarity,
+    discoveredAt,
+    isFavorite: false,
+    traits,
+    generation: childGen,
+    parent1Id: parent1.id,
+    parent2Id: parent2.id,
+    parent1Name: parent1.name,
+    parent2Name: parent2.name,
+    ancestryLineage,
+    existenceStatus: 'alive',
+    missingSince: null,
+    expectedReturnAt: null,
+    lastFateIncidentAt: null,
+    fateHistory: [
+      {
+        id: `fate_${id}_hatched`,
+        hybridId: id,
+        type: 'hatched',
+        timestamp: discoveredAt,
+        title: 'Quantum Genesis',
+        description: `Synthesized from ${parent1.name} × ${parent2.name} (${ancestryLineage}) in the Quantum Incubator.`
       }
     ]
   };

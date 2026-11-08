@@ -1,6 +1,6 @@
 import assert from 'assert';
-import worker from '../worker/index';
-import { createLocalD1Database } from '../worker/local-d1';
+import worker from '../worker/index.ts';
+import { createLocalD1Database } from '../worker/local-d1.ts';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 
 async function runSavePersistenceTestSuite() {
