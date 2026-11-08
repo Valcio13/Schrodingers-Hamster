@@ -18,8 +18,28 @@ CREATE TABLE IF NOT EXISTS players (
   last_live_breeding_at INTEGER NOT NULL DEFAULT 0,
   active_lab_hybrid_id TEXT,
   last_fate_roll_at INTEGER NOT NULL DEFAULT 0,
-  last_serious_incident_at INTEGER NOT NULL DEFAULT 0
+  last_serious_incident_at INTEGER NOT NULL DEFAULT 0,
+  state_json TEXT,
+  total_experiments_conducted INTEGER NOT NULL DEFAULT 0,
+  active_assistant_hamster_id TEXT,
+  hybrid_capacity_bonus INTEGER NOT NULL DEFAULT 0,
+  research_mastery_level INTEGER NOT NULL DEFAULT 0,
+  save_revision INTEGER NOT NULL DEFAULT 1,
+  save_lineage_id TEXT,
+  last_restored_backup_id TEXT
 );
+
+CREATE TABLE IF NOT EXISTS consumed_backups (
+  backup_id TEXT PRIMARY KEY,
+  player_id TEXT NOT NULL,
+  lineage_id TEXT NOT NULL,
+  save_revision INTEGER NOT NULL,
+  consumed_at INTEGER NOT NULL,
+  restored_to_player_id TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_consumed_backups_player ON consumed_backups(player_id);
+CREATE INDEX IF NOT EXISTS idx_consumed_backups_lineage ON consumed_backups(lineage_id);
 
 CREATE TABLE IF NOT EXISTS discovered_hamsters (
   player_id TEXT NOT NULL,
@@ -110,3 +130,89 @@ CREATE TABLE IF NOT EXISTS player_incubations (
   chosen_state TEXT,
   resolved_hybrid_id TEXT
 );
+
+CREATE TABLE IF NOT EXISTS auth_nonces (
+  nonce TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  consumed INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  token TEXT PRIMARY KEY,
+  wallet_address TEXT NOT NULL,
+  player_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_token ON auth_sessions(token);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_player ON auth_sessions(player_id);
+
+CREATE TABLE IF NOT EXISTS player_wallets (
+  wallet_address TEXT PRIMARY KEY,
+  player_id TEXT NOT NULL,
+  linked_at INTEGER NOT NULL,
+  last_login_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_player_wallets_player ON player_wallets(player_id);
+
+CREATE TABLE IF NOT EXISTS nft_mint_authorizations (
+  authorization_id TEXT PRIMARY KEY,
+  specimen_id TEXT NOT NULL UNIQUE,
+  player_id TEXT NOT NULL,
+  wallet_address TEXT NOT NULL,
+  token_id INTEGER NOT NULL UNIQUE,
+  token_uri TEXT NOT NULL,
+  metadata_hash TEXT NOT NULL,
+  specimen_hash TEXT NOT NULL,
+  nonce TEXT NOT NULL,
+  deadline INTEGER NOT NULL,
+  signature TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'authorized'
+);
+
+CREATE TABLE IF NOT EXISTS minted_nfts (
+  token_id INTEGER PRIMARY KEY,
+  specimen_id TEXT NOT NULL UNIQUE,
+  wallet_address TEXT NOT NULL,
+  chain_id INTEGER NOT NULL DEFAULT 11155111,
+  contract_address TEXT NOT NULL,
+  token_uri TEXT NOT NULL,
+  metadata_hash TEXT NOT NULL,
+  tx_hash TEXT NOT NULL,
+  minted_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_minted_nfts_wallet ON minted_nfts(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_minted_nfts_specimen ON minted_nfts(specimen_id);
+
+CREATE TABLE IF NOT EXISTS nft_frozen_snapshots (
+  specimen_id TEXT PRIMARY KEY,
+  token_id INTEGER NOT NULL UNIQUE,
+  player_id TEXT NOT NULL,
+  wallet_address TEXT NOT NULL,
+  name TEXT NOT NULL,
+  rarity TEXT NOT NULL,
+  personality TEXT NOT NULL,
+  parent1_species TEXT NOT NULL,
+  parent2_species TEXT NOT NULL,
+  seed INTEGER NOT NULL,
+  traits_json TEXT NOT NULL,
+  artwork_cid TEXT NOT NULL,
+  artwork_hash TEXT NOT NULL,
+  metadata_cid TEXT NOT NULL,
+  metadata_hash TEXT NOT NULL,
+  token_uri TEXT NOT NULL,
+  specimen_hash TEXT NOT NULL,
+  storage_provider TEXT NOT NULL DEFAULT 'pinata',
+  verified_at INTEGER NOT NULL,
+  frozen_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_frozen_snapshots_token ON nft_frozen_snapshots(token_id);
+CREATE INDEX IF NOT EXISTS idx_frozen_snapshots_wallet ON nft_frozen_snapshots(wallet_address);
+
+

@@ -17,13 +17,28 @@ function getPlayerId(): string {
   return id;
 }
 
-const BASE_URL = '/api';
+export function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'X-Player-ID': getPlayerId()
+  };
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('squeek_session_token') : null;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+export const WORKER_PROD_API = 'https://schrodingers-hamster.valcio222.workers.dev/api';
+export const BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || ((import.meta as any).env?.PROD ? WORKER_PROD_API : '/api');
 
 export async function fetchPlayerState(): Promise<PlayerState> {
   const res = await fetch(`${BASE_URL}/state?playerId=${getPlayerId()}`, {
-    headers: { 'X-Player-ID': getPlayerId() }
+    headers: getAuthHeaders()
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  }
   return await res.json();
 }
 
@@ -76,6 +91,43 @@ export async function setDevBatteryState(options: { energy?: number; capacity?: 
     body: JSON.stringify({
       setBatteryEnergy: options.energy,
       setBatteryCapacity: options.capacity
+    })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+export async function setDevBreedingCharges(charges: number, progress?: number): Promise<{
+  player: PlayerState;
+  telemetry: SqueekTelemetry;
+}> {
+  const res = await fetch(`${BASE_URL}/claim-work`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Player-ID': getPlayerId()
+    },
+    body: JSON.stringify({
+      setBreedingCharges: charges,
+      setBreedingChargeProgress: progress
+    })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+export async function addDevBreedingCharges(amount: number = 1): Promise<{
+  player: PlayerState;
+  telemetry: SqueekTelemetry;
+}> {
+  const res = await fetch(`${BASE_URL}/claim-work`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Player-ID': getPlayerId()
+    },
+    body: JSON.stringify({
+      addBreedingCharges: amount
     })
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -148,6 +200,22 @@ export async function unlockResearch(upgradeId: string): Promise<{
       'X-Player-ID': getPlayerId()
     },
     body: JSON.stringify({ upgradeId })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function synthesizeResearchNotes(
+  action: 'battery' | 'breeding_charge' | 'habitat_expansion'
+): Promise<{ player: PlayerState; success: boolean; action: string }> {
+  const res = await fetch(`${BASE_URL}/research/synthesize`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Player-ID': getPlayerId()
+    },
+    body: JSON.stringify({ action })
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -398,5 +466,72 @@ export async function dismissFateIncidentsApi(): Promise<{
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function exportPlayerBackup(): Promise<any> {
+  const res = await fetch(`${BASE_URL}/backup/export`, {
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
+export async function validatePlayerBackup(backup: any): Promise<{
+  valid: boolean;
+  canRestore: boolean;
+  error?: string | null;
+  message: string;
+  summary?: any;
+  exportedDate?: string;
+  backupId?: string;
+  saveRevision?: number;
+}> {
+  const customHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders()
+  };
+  // If guest, propagate backup.playerId for account identity matching
+  if (!sessionStorage.getItem('squeek_session_token') && backup?.playerId) {
+    customHeaders['X-Player-ID'] = backup.playerId;
+  }
+
+  const res = await fetch(`${BASE_URL}/backup/validate`, {
+    method: 'POST',
+    headers: customHeaders,
+    body: JSON.stringify({ backup })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok && res.status !== 400 && res.status !== 403 && res.status !== 409) {
+    throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+export async function importPlayerBackup(backup: any): Promise<{
+  success: boolean;
+  message: string;
+  player: PlayerState;
+}> {
+  const customHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders()
+  };
+  if (!sessionStorage.getItem('squeek_session_token') && backup?.playerId) {
+    customHeaders['X-Player-ID'] = backup.playerId;
+  }
+
+  const res = await fetch(`${BASE_URL}/backup/import`, {
+    method: 'POST',
+    headers: customHeaders,
+    body: JSON.stringify({ backup })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  }
   return data;
 }

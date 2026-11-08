@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import workerHandler from './worker/index';
+import { createLocalD1Database } from './worker/local-d1';
+
+const localDb = createLocalD1Database();
 
 export default defineConfig({
   plugins: [
@@ -24,7 +27,7 @@ export default defineConfig({
                   headers: req.headers as any,
                   body: ['POST', 'PUT', 'PATCH'].includes(req.method || '') ? body : undefined
                 });
-                const response = await workerHandler.fetch(request, {});
+                const response = await workerHandler.fetch(request, { DB: localDb });
                 res.statusCode = response.status;
                 response.headers.forEach((value, key) => {
                   res.setHeader(key, value);

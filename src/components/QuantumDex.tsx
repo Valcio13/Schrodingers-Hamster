@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PlayerState,
   HAMSTER_SPECIES,
@@ -6,10 +6,14 @@ import {
   CollectibleHamster,
   QuantumHybrid,
   HamsterPersonality,
-  MAX_HYBRID_CAPACITY
+  MAX_HYBRID_CAPACITY,
+  getMaxHybridCapacity
 } from '../types/game';
 import { PixelHamster } from './PixelHamster';
 import { PixelHybridHamster } from './PixelHybridHamster';
+import { MintNftModal } from './MintNftModal';
+import { checkWalletConnection, checkSiweSession } from '../services/web3';
+import { Web3WalletState, SiweSessionState } from '../types/game';
 import {
   Award,
   UserCheck,
@@ -28,7 +32,8 @@ import {
   RotateCcw,
   History,
   Shield,
-  Eye
+  Eye,
+  ExternalLink
 } from 'lucide-react';
 import { audio } from '../services/audio';
 
@@ -41,6 +46,7 @@ interface QuantumDexProps {
   onToggleFavoriteHybrid?: (hybridId: string) => Promise<void>;
   onReleaseHybrid?: (hybridId: string) => Promise<void>;
   onSetLabDisplayHybrid?: (hybridId: string | null) => Promise<void>;
+  onNftMintSuccess?: (hybrid: QuantumHybrid) => void;
   isAssigning?: boolean;
 }
 
@@ -134,6 +140,7 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
   onToggleFavoriteHybrid,
   onReleaseHybrid,
   onSetLabDisplayHybrid,
+  onNftMintSuccess,
   isAssigning = false
 }) => {
   const speciesList = Object.values(HAMSTER_SPECIES);
@@ -141,6 +148,7 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
   const totalBaseSpecimens = player.hamsters?.length || 0;
   const hybridsList = player.hybrids || [];
   const totalHybrids = hybridsList.length;
+  const maxCapacity = getMaxHybridCapacity(player);
 
   // Active Category: 'base' or 'hybrids'
   const [dexCategory, setDexCategory] = useState<'base' | 'hybrids'>('base');
@@ -167,6 +175,16 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
   // Release confirmation modal state
   const [releasingHybrid, setReleasingHybrid] = useState<QuantumHybrid | null>(null);
   const [isReleasing, setIsReleasing] = useState(false);
+
+  // Web3 Minting State
+  const [mintingHybrid, setMintingHybrid] = useState<QuantumHybrid | null>(null);
+  const [dexWallet, setDexWallet] = useState<Web3WalletState>({ connected: false, address: null, chainId: null, isSepolia: false });
+  const [dexSession, setDexSession] = useState<SiweSessionState>({ authenticated: false, address: null, playerId: null, sessionToken: null });
+
+  useEffect(() => {
+    checkWalletConnection().then(setDexWallet).catch(() => {});
+    checkSiweSession().then(setDexSession).catch(() => {});
+  }, []);
 
   // Collection filter
   const [filterMode, setFilterMode] = useState<'all' | 'favorites'>('all');
@@ -309,7 +327,7 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
             <Dna className="w-3.5 h-3.5 text-purple-400" />
             <span className="text-slate-400">Active:</span>
             <span className="font-bold text-purple-300">
-              {activeHybrids.length} / {MAX_HYBRID_CAPACITY}
+              {activeHybrids.length} / {maxCapacity}
             </span>
           </div>
 
@@ -358,7 +376,7 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
             <Dna className="w-3.5 h-3.5" />
             <span>Quantum Hybrids</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-900/80 text-purple-200">
-              {totalHybrids}/{MAX_HYBRID_CAPACITY}
+              {totalHybrids}/{maxCapacity}
             </span>
           </button>
         </div>
@@ -640,7 +658,7 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-purple-300" />
                 <span>Active Sanctuary</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-200">
-                  {activeHybrids.length}/{MAX_HYBRID_CAPACITY}
+                  {activeHybrids.length}/{maxCapacity}
                 </span>
               </button>
 
@@ -666,7 +684,7 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
             <div className="text-xs font-mono text-slate-400">
               {hybridSubTab === 'active' ? (
                 <span>
-                  {activeHybrids.length} active hybrids in sanctuary ({MAX_HYBRID_CAPACITY} capacity limit)
+                  {activeHybrids.length} active hybrids in sanctuary {maxCapacity} capacity limit
                 </span>
               ) : (
                 <span className="text-rose-300/80">
@@ -742,6 +760,11 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
 
                         {/* Top Right: Status / Personality Badge */}
                         <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
+                          {hybrid.nftTokenId && (
+                            <span className="bg-purple-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 font-mono shadow-sm border border-purple-400" title={`Minted Onchain: Token #${hybrid.nftTokenId}`}>
+                              <span>ONCHAIN #{hybrid.nftTokenId}</span>
+                            </span>
+                          )}
                           {isLabDisplay && !isDeceased && !isMissing ? (
                             <span className="bg-pink-500 text-slate-950 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 font-mono shadow-sm">
                               <Heart className="w-3 h-3 fill-current" /> LAB COMPANION
@@ -1353,6 +1376,84 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
                 </div>
               </div>
 
+              {/* Web3 v1: Blockchain & Immutable NFT Section */}
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-purple-500/40 text-xs font-mono space-y-2.5">
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                  <span className="text-white font-semibold flex items-center gap-1.5 font-sans">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Blockchain & Immutable NFT
+                  </span>
+                  <span className="text-[10px] text-purple-300 font-mono bg-purple-950/80 px-2 py-0.5 rounded border border-purple-500/30">
+                    Ethereum Sepolia Testnet (11155111)
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] text-slate-400">Onchain Status</div>
+                    <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                      {inspectingHybrid.nftTokenId ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="text-emerald-300">ONCHAIN — TOKEN #{inspectingHybrid.nftTokenId}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-slate-500" />
+                          <span className="text-slate-300">Not Minted (Offchain Laboratory — Minting Optional)</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  {inspectingHybrid.nftTokenId ? (
+                    <div className="flex items-center gap-2">
+                      {inspectingHybrid.nftTxHash && (
+                        <a
+                          href={`https://sepolia.etherscan.io/tx/${inspectingHybrid.nftTxHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-purple-950/80 hover:bg-purple-900 border border-purple-500/60 text-purple-200 hover:text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                        >
+                          <span>View on Explorer</span>
+                          <ExternalLink className="w-3 h-3 text-purple-400" />
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      {inspectingHybrid.existenceStatus === 'deceased' ? (
+                        <span className="text-[10px] text-slate-500 italic">
+                          Deceased specimens cannot be minted
+                        </span>
+                      ) : inspectingHybrid.existenceStatus === 'missing' ? (
+                        <span className="text-[10px] text-amber-400/80 italic">
+                          Cannot mint while in superposition
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            audio.playClick();
+                            setMintingHybrid(inspectingHybrid);
+                          }}
+                          className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-purple-600/30 active:scale-95"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>MINT AS NFT</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {inspectingHybrid.nftTokenId && (
+                  <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-800/80 flex items-center justify-between">
+                    <span>Contract: {inspectingHybrid.nftContractAddress ? `${inspectingHybrid.nftContractAddress.slice(0, 10)}...${inspectingHybrid.nftContractAddress.slice(-6)}` : 'Sepolia'}</span>
+                    <span>Minted {inspectingHybrid.nftMintedAt ? new Date(inspectingHybrid.nftMintedAt).toLocaleDateString() : 'Onchain'}</span>
+                  </div>
+                )}
+              </div>
+
               {/* Quantum Incident History Timeline */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs font-mono">
@@ -1475,6 +1576,21 @@ export const QuantumDex: React.FC<QuantumDexProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Web3 v1: Mint NFT Modal */}
+      {mintingHybrid && (
+        <MintNftModal
+          hybrid={mintingHybrid}
+          wallet={dexWallet}
+          session={dexSession}
+          onClose={() => setMintingHybrid(null)}
+          onSuccess={(updated) => {
+            setInspectingHybrid(updated);
+            setMintingHybrid(null);
+            if (onNftMintSuccess) onNftMintSuccess(updated);
+          }}
+        />
       )}
     </div>
   );

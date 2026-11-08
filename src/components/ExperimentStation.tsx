@@ -11,7 +11,7 @@ import {
 } from '../types/game';
 import { SqueekTelemetry } from '../../worker/squeekchain';
 import { PixelHamster } from './PixelHamster';
-import { Sparkles, Clock, Zap, Atom, Eye, ChevronRight, CheckCircle2, UserCheck, Edit2, Check, ArrowRight } from 'lucide-react';
+import { Sparkles, Clock, Zap, Atom, Eye, ChevronRight, CheckCircle2, UserCheck, Edit2, Check, ArrowRight, Dna, FlaskConical, Radio } from 'lucide-react';
 import { audio } from '../services/audio';
 import confetti from 'canvas-confetti';
 
@@ -27,6 +27,71 @@ interface ExperimentStationProps {
   isStarting: boolean;
   hideHeader?: boolean;
 }
+
+
+const CyberTerminalIllustration = () => (
+  <svg className="w-24 sm:w-28 h-20 shrink-0" viewBox="0 0 120 80" fill="none">
+    <defs>
+      <filter id="psi-glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#f472b6" floodOpacity="0.9" />
+      </filter>
+      <linearGradient id="screen-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#1e1035" />
+        <stop offset="100%" stopColor="#0b0617" />
+      </linearGradient>
+    </defs>
+    {/* Stacked books on left */}
+    <rect x="6" y="62" width="22" height="6" rx="2" fill="#3b2667" stroke="#6d28d9" strokeWidth="1" />
+    <rect x="8" y="55" width="18" height="6" rx="2" fill="#4c1d95" stroke="#7c3aed" strokeWidth="1" />
+
+    {/* Desk surface line */}
+    <line x1="2" y1="72" x2="118" y2="72" stroke="#2e1b4e" strokeWidth="2" strokeLinecap="round" />
+
+    {/* CRT Monitor stand */}
+    <path d="M 45 68 L 55 68 L 52 58 L 48 58 Z" fill="#2d1b4e" stroke="#4c2882" strokeWidth="1" />
+    <rect x="40" y="68" width="20" height="3" rx="1.5" fill="#3b2064" />
+
+    {/* CRT Monitor Outer Casing */}
+    <rect x="30" y="16" width="40" height="38" rx="6" fill="#1b1030" stroke="#582a99" strokeWidth="2" />
+    {/* Inner Screen */}
+    <rect x="34" y="20" width="32" height="28" rx="4" fill="url(#screen-grad)" stroke="#7c3aed" strokeWidth="1" />
+    {/* Scanline subtle reflection */}
+    <path d="M 35 22 Q 50 25, 65 22" stroke="rgba(236,72,153,0.25)" strokeWidth="1" fill="none" />
+
+    {/* Quantum Psi (Ψ) Symbol on Screen */}
+    <text
+      x="50"
+      y="39"
+      textAnchor="middle"
+      fill="#f472b6"
+      fontSize="17"
+      fontWeight="900"
+      fontFamily="serif"
+      filter="url(#psi-glow)"
+    >
+      Ψ
+    </text>
+
+    {/* Reagent Flask on Right */}
+    <path
+      d="M 94 44 L 98 56 Q 101 68, 92 68 Q 83 68, 86 56 L 90 44 Z"
+      fill="#28114b"
+      stroke="#a855f7"
+      strokeWidth="1.5"
+    />
+    {/* Cork */}
+    <rect x="91" y="40" width="6" height="4" rx="1" fill="#78350f" />
+    {/* Glowing fluid inside flask */}
+    <path
+      d="M 87 58 Q 92 66, 97 58 Q 98 66, 92 66 Q 86 66, 87 58 Z"
+      fill="#c084fc"
+      opacity="0.85"
+      filter="drop-shadow(0 0 5px #a855f7)"
+    />
+    {/* Rising bubble */}
+    <circle cx="92" cy="52" r="1.5" fill="#f472b6" opacity="0.8" />
+  </svg>
+);
 
 export const ExperimentStation: React.FC<ExperimentStationProps> = ({
   player,
@@ -181,21 +246,53 @@ export const ExperimentStation: React.FC<ExperimentStationProps> = ({
   // Find next research upgrade to display progression in reveal modal
   const nextResearch = RESEARCH_UPGRADES.find(u => !player.unlockedResearch.includes(u.id));
 
-  // Render SVG waveform graphics for each state
-  const renderWaveform = (style: string, color: string) => {
+  // Render glowing SVG waveform graphics matching Image 1
+  const renderWaveform = (style: string, color: string, isA: boolean) => {
     return (
-      <svg className="w-full h-8" viewBox="0 0 100 24" preserveAspectRatio="none">
+      <svg className="w-36 sm:w-52 h-9 overflow-visible" viewBox="0 0 200 40" fill="none">
+        <defs>
+          <filter id={`glow-${style}-${isA ? 'A' : 'B'}`} x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor={color} floodOpacity="0.85" />
+          </filter>
+        </defs>
         {style === 'sine' && (
-          <path d="M0 12 Q25 0 50 12 T100 12" fill="none" stroke={color} strokeWidth="2.5" />
+          <path
+            d="M 5 20 Q 25 5, 50 20 T 95 20 T 140 20 T 185 20"
+            stroke={color}
+            strokeWidth="3"
+            strokeLinecap="round"
+            filter={`url(#glow-${style}-${isA ? 'A' : 'B'})`}
+          />
         )}
         {style === 'pulse' && (
-          <path d="M0 12 L35 12 L45 2 L55 22 L65 12 L100 12" fill="none" stroke={color} strokeWidth="2.5" />
+          <path
+            d="M 5 20 L 70 20 L 85 6 L 100 34 L 115 12 L 125 20 L 195 20"
+            stroke={color}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            filter={`url(#glow-${style}-${isA ? 'A' : 'B'})`}
+          />
         )}
         {style === 'chaotic' && (
-          <path d="M0 12 Q15 2 30 18 T60 4 T80 20 L100 12" fill="none" stroke={color} strokeWidth="2.5" />
+          <path
+            d="M 5 20 Q 40 8, 70 22 T 110 12 Q 130 28, 150 15 L 170 30 L 195 24"
+            stroke={color}
+            strokeWidth="3.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            filter={`url(#glow-${style}-${isA ? 'A' : 'B'})`}
+          />
         )}
         {style === 'sawtooth' && (
-          <path d="M0 18 L25 4 L25 18 L50 4 L50 18 L75 4 L75 18 L100 4" fill="none" stroke={color} strokeWidth="2.5" />
+          <path
+            d="M 5 28 L 45 12 L 45 28 L 85 12 L 85 28 L 125 12 L 125 28 L 165 12 L 165 28 L 195 18"
+            stroke={color}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            filter={`url(#glow-${style}-${isA ? 'A' : 'B'})`}
+          />
         )}
       </svg>
     );
@@ -206,66 +303,55 @@ export const ExperimentStation: React.FC<ExperimentStationProps> = ({
     const canUseGhostSight = player.activeAssistant === 'ghost' && activeExp && !activeExp.ghostSightUsed;
 
     const stabilityColors = {
-      High: 'text-emerald-400 bg-emerald-950/60 border-emerald-800',
-      Moderate: 'text-cyan-400 bg-cyan-950/60 border-cyan-800',
-      Low: 'text-amber-400 bg-amber-950/60 border-amber-800',
-      Volatile: 'text-rose-400 bg-rose-950/60 border-rose-800'
+      High: 'text-emerald-400 bg-emerald-950/60 border-emerald-800/80',
+      Moderate: 'text-cyan-400 bg-cyan-950/60 border-cyan-800/80',
+      Low: 'text-amber-400 bg-amber-950/60 border-amber-800/80',
+      Volatile: 'text-rose-400 bg-rose-950/60 border-rose-800/80'
     };
+
+    const stateColor = isA ? '#ec4899' : '#a3e635';
 
     return (
       <div
-        className={`p-4 rounded-xl border flex flex-col justify-between transition-all relative overflow-hidden ${
+        className={`p-4 sm:p-5 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between space-y-3.5 ${
           isObservingThis
-            ? 'border-lime-400 bg-lime-950/30 scale-[1.02] shadow-xl'
-            : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+            ? 'border-purple-400 bg-[#160f30] scale-[1.01] shadow-[0_0_30px_rgba(168,85,247,0.35)]'
+            : 'bg-[#120d26]/90 border-purple-900/40 hover:border-purple-500/50 shadow-lg'
         }`}
       >
         <div className="space-y-3">
-          {/* Header */}
+          {/* Top Header Row */}
           <div className="flex items-center justify-between">
             <span
-              className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase"
-              style={{ color: state.waveformColor, backgroundColor: `${state.waveformColor}20`, border: `1px solid ${state.waveformColor}40` }}
+              className={`px-3 py-1 rounded-full text-xs font-mono font-bold uppercase flex items-center gap-1.5 ${
+                isA
+                  ? 'text-pink-300 bg-purple-950/80 border border-pink-500/40 shadow-[0_0_10px_rgba(236,72,153,0.25)]'
+                  : 'text-lime-300 bg-lime-950/40 border border-lime-500/40 shadow-[0_0_10px_rgba(163,230,53,0.25)]'
+              }`}
             >
-              {state.id === 'A' ? '⚛️ STATE A' : '🌌 STATE B'}
+              {isA ? '⚛️ STATE A' : '📶 STATE B'}
             </span>
-            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${stabilityColors[state.stability]}`}>
+            <span className={`text-xs font-mono font-bold px-3 py-1 rounded-lg border ${stabilityColors[state.stability]}`}>
               Stability: {state.stability}
             </span>
           </div>
 
-          <div>
-            <h4 className="font-bold text-white text-sm leading-snug">{state.name}</h4>
-            <div className="mt-1 opacity-90">{renderWaveform(state.waveformStyle, state.waveformColor)}</div>
-          </div>
-
-          <p className="text-[11px] text-slate-300 leading-relaxed">
-            {state.summary}
-          </p>
-
-          {/* Properties Grid */}
-          <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono bg-slate-900/90 p-2 rounded-lg border border-slate-800">
+          {/* Title & Waveform Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
             <div>
-              <span className="text-slate-500 block">Research:</span>
-              <span className="text-cyan-300 font-bold">{state.researchPotential}</span>
+              <h4 className="font-bold text-white text-base sm:text-lg leading-snug tracking-tight">{state.name}</h4>
+              <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                {state.summary}
+              </p>
             </div>
-            <div>
-              <span className="text-slate-500 block">Mutation:</span>
-              <span className="text-purple-300 font-bold">{state.mutationPotential}</span>
-            </div>
-            <div>
-              <span className="text-slate-500 block">Energy:</span>
-              <span className="text-amber-300 font-bold">{state.energySignature}</span>
-            </div>
-            <div>
-              <span className="text-slate-500 block">Signal:</span>
-              <span className="text-slate-300 font-bold uppercase">{state.waveformStyle}</span>
+            <div className="shrink-0 self-end sm:self-center opacity-95">
+              {renderWaveform(state.waveformStyle, stateColor, isA)}
             </div>
           </div>
 
-          {/* Revealed Clue from Ghost Hamster */}
+          {/* Revealed Clue from Ghost Hamster (if any) */}
           {state.revealedClue && (
-            <div className="p-2.5 rounded-lg bg-cyan-950/80 border border-cyan-500/60 text-xs text-cyan-200 animate-fade-in flex items-start gap-1.5">
+            <div className="p-2.5 rounded-xl bg-cyan-950/80 border border-cyan-500/60 text-xs text-cyan-200 animate-fade-in flex items-start gap-2 shadow-sm">
               <span className="text-base">👻</span>
               <div>
                 <strong className="block text-[11px] text-cyan-400 font-mono">Quantum Sight Peek:</strong>
@@ -274,44 +360,89 @@ export const ExperimentStation: React.FC<ExperimentStationProps> = ({
             </div>
           )}
 
-          {/* Ghost Sight Action Button */}
+          {/* Ghost Sight Action Button (if available) */}
           {canUseGhostSight && !state.revealedClue && (
             <button
               type="button"
               onClick={() => handleUseGhostSight(state.id)}
               disabled={isGhostPeeking}
-              className="w-full py-1.5 px-2.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-950/80 border border-cyan-800/80 text-[11px] font-mono text-cyan-300 hover:text-cyan-200 transition-colors flex items-center justify-center gap-1.5"
+              className="w-full py-1.5 px-3 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-800 text-xs font-mono text-cyan-300 hover:text-cyan-200 transition-colors flex items-center justify-center gap-1.5"
             >
               <Eye className="w-3.5 h-3.5 text-cyan-400" />
               <span>Use Quantum Sight on State {state.id}</span>
             </button>
           )}
-        </div>
 
-        {/* Observe Button */}
-        <div className="pt-3 mt-3 border-t border-slate-800/80">
-          <button
-            type="button"
-            onClick={() => handleObserve(state.id)}
-            disabled={timeLeft > 0 || isRevealing}
-            className={`w-full py-2.5 rounded-xl font-bold font-sans text-xs transition-all flex items-center justify-center gap-2 shadow-md ${
-              timeLeft > 0
-                ? 'bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-lime-400 to-emerald-400 hover:from-lime-300 hover:to-emerald-300 text-slate-950 hover:shadow-lime-500/20 transform hover:-translate-y-0.5 active:translate-y-0'
-            }`}
-          >
-            <span>{timeLeft > 0 ? `Sealed (${timeLeft}s)` : `OBSERVE STATE ${state.id}`}</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {/* Bottom Matrix & CTA Row */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+            {/* 2x2 Telemetry Matrix */}
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono flex-1">
+              {/* Research */}
+              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#181133] border border-purple-900/50">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <FlaskConical className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Research</span>
+                </span>
+                <span className="text-cyan-300 font-bold ml-2">{state.researchPotential}</span>
+              </div>
+
+              {/* Mutation */}
+              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#181133] border border-purple-900/50">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <Dna className="w-3.5 h-3.5 text-pink-400" />
+                  <span>Mutation</span>
+                </span>
+                <span className="text-pink-300 font-bold ml-2">{state.mutationPotential}</span>
+              </div>
+
+              {/* Energy */}
+              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#181133] border border-purple-900/50">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Energy</span>
+                </span>
+                <span className="text-amber-300 font-bold ml-2">{state.energySignature}</span>
+              </div>
+
+              {/* Signal */}
+              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#181133] border border-purple-900/50">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <Radio className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Signal</span>
+                </span>
+                <span className="text-slate-100 font-bold uppercase ml-2">
+                  {state.waveformStyle === 'chaotic' ? 'CHAOTIC' : state.waveformStyle === 'sine' ? 'COHERENT' : state.waveformStyle === 'pulse' ? 'PULSING' : 'LATTICE'}
+                </span>
+              </div>
+            </div>
+
+            {/* Observe Button */}
+            <button
+              type="button"
+              onClick={() => handleObserve(state.id)}
+              disabled={timeLeft > 0 || isRevealing}
+              className={`py-3.5 px-6 rounded-2xl font-bold font-sans text-sm transition-all flex items-center justify-center gap-2 shadow-lg shrink-0 ${
+                timeLeft > 0
+                  ? 'bg-purple-950/40 border border-purple-900/50 text-purple-400/60 cursor-not-allowed opacity-80'
+                  : 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-500 hover:via-fuchsia-500 hover:to-pink-500 text-white shadow-[0_0_25px_rgba(217,70,239,0.45)] hover:shadow-[0_0_35px_rgba(236,72,153,0.6)] transform hover:-translate-y-0.5 active:translate-y-0'
+              }`}
+            >
+              <Eye className="w-4 h-4" />
+              <span>{timeLeft > 0 ? `Sealed (${timeLeft}s)` : `Observe State ${state.id}`}</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     );
   };
 
+  const totalSecs = activeExp ? Math.max(1, Math.round((activeExp.finishesAt - activeExp.startedAt) / 1000)) : 3;
+
   return (
-    <div className={`space-y-4 ${hideHeader ? '' : 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg'}`}>
+    <div className={`space-y-4 ${hideHeader ? '' : 'bg-[#0e0a1f] border-2 border-purple-500/40 rounded-3xl p-5 shadow-2xl'}`}>
       {!hideHeader && (
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="flex items-center justify-between pb-3 border-b border-purple-900/40">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400">
               <Atom className="w-5 h-5" />
@@ -330,70 +461,80 @@ export const ExperimentStation: React.FC<ExperimentStationProps> = ({
         </div>
       )}
 
-      {/* Active Experiment Status Pill when Header is hidden */}
-      {hideHeader && activeExp && (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-purple-950/60 border border-purple-700 text-xs font-mono">
-          <div className="flex items-center gap-2 text-purple-300">
-            <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
-            <span>Chamber Superposition Active</span>
-          </div>
-          <span className="font-bold text-white">
-            {timeLeft > 0 ? `Sealed (${activeExp.approach.toUpperCase()}): ${timeLeft}s` : 'Stabilized — Select State to Observe'}
-          </span>
-        </div>
-      )}
-
-      {/* Active Experiment View: Dual State Quantum Observation Interface */}
+      {/* Active Experiment View: Dual State Quantum Observation Interface (Image 1) */}
       {activeExp ? (
         <div className="space-y-4">
-          {timeLeft > 0 ? (
-            /* During countdown: Chamber sealed with emerging quantum signals */
-            <div className="p-4 rounded-xl border border-purple-500/30 bg-gradient-to-b from-purple-950/30 to-slate-950 text-center space-y-3">
-              <div className="flex items-center justify-center gap-3">
-                <div className="w-10 h-10 rounded-full border-2 border-purple-500/40 border-t-purple-400 animate-spin flex items-center justify-center" />
-                <div className="text-left">
-                  <h4 className="font-bold text-white text-sm">Chamber Sealed in Superposition</h4>
-                  <p className="text-xs text-slate-400">
-                    Emerging quantum eigenstates detected • Stabilizing in <strong className="text-purple-300 font-mono">{timeLeft}s</strong>
+          {/* Superposition Banner: Countdown Ring, Striped Progress Bar & Cyberpunk Terminal */}
+          <div className="rounded-2xl border border-purple-500/30 bg-[#140e2b]/90 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden shadow-xl">
+            {/* Ambient Glow */}
+            <div className="absolute top-0 right-1/4 w-48 h-24 bg-purple-600/10 blur-2xl pointer-events-none" />
+
+            {/* Left: Circular Countdown Timer */}
+            <div className="flex items-center gap-4 w-full sm:w-auto">
+              <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
+                <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 60 60">
+                  {/* Background Ring */}
+                  <circle cx="30" cy="30" r="24" stroke="rgba(88,28,135,0.4)" strokeWidth="4" fill="none" />
+                  {/* Progress Ring with neon glow */}
+                  <circle
+                    cx="30"
+                    cy="30"
+                    r="24"
+                    stroke={timeLeft > 0 ? '#ec4899' : '#10b981'}
+                    strokeWidth="4"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 24}
+                    strokeDashoffset={2 * Math.PI * 24 * (timeLeft > 0 ? (timeLeft / totalSecs) : 0)}
+                    style={{
+                      filter: timeLeft > 0 ? 'drop-shadow(0 0 6px #ec4899)' : 'drop-shadow(0 0 6px #10b981)',
+                      transition: 'stroke-dashoffset 0.8s linear'
+                    }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center font-bold text-white text-base">
+                  {timeLeft > 0 ? `${timeLeft}s` : 'READY'}
+                </div>
+              </div>
+
+              {/* Middle Column: Text & Striped Animated Progress Bar */}
+              <div className="flex-1 space-y-2">
+                <div>
+                  <h4 className="font-bold text-white text-base leading-tight">
+                    {timeLeft > 0 ? 'Chamber Sealed in Superposition' : 'Wavefunction Stabilized'}
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {timeLeft > 0
+                      ? 'Quantum eigenstates detected • Stabilizing for collapse...'
+                      : 'Quantum eigenstates resolved • Ready to collapse reality!'}
                   </p>
                 </div>
-              </div>
 
-              {/* Emerging State Previews */}
-              <div className="flex flex-col space-y-3 text-left pt-2">
-                {activeExp.stateA && renderStateCard(activeExp.stateA, true)}
-                {activeExp.stateB && renderStateCard(activeExp.stateB, false)}
-              </div>
-            </div>
-          ) : (
-            /* Wavefunction stabilized: Choose State A or State B */
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-lime-500/10 border border-lime-500/30 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">📦</span>
-                  <div>
-                    <h4 className="font-bold text-lime-400 text-sm">
-                      Wavefunction Stabilized: Choose Which State to Observe
-                    </h4>
-                    <p className="text-[11px] text-slate-300">
-                      Inspect the signals below. Your observation will permanently collapse that state into reality!
-                    </p>
-                  </div>
+                {/* Striped Diagonal Progress Bar */}
+                <div className="w-full h-3 rounded-full bg-slate-950/80 border border-purple-800/60 overflow-hidden relative p-0.5">
+                  <div
+                    className="h-full rounded-full animate-quantum-stripes shadow-[0_0_12px_rgba(236,72,153,0.7)] transition-all duration-700"
+                    style={{
+                      width: timeLeft > 0
+                        ? `${Math.max(15, Math.round((1 - timeLeft / totalSecs) * 100))}%`
+                        : '100%'
+                    }}
+                  />
                 </div>
-                {player.activeAssistant === 'ghost' && !activeExp.ghostSightUsed && (
-                  <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800 px-2 py-1 rounded">
-                    👻 Quantum Sight Ready
-                  </span>
-                )}
-              </div>
-
-              {/* State A and State B Choice Cards */}
-              <div className="flex flex-col space-y-3">
-                {activeExp.stateA && renderStateCard(activeExp.stateA, true)}
-                {activeExp.stateB && renderStateCard(activeExp.stateB, false)}
               </div>
             </div>
-          )}
+
+            {/* Right: Retro Cyberpunk CRT Terminal Illustration */}
+            <div className="hidden sm:block shrink-0">
+              <CyberTerminalIllustration />
+            </div>
+          </div>
+
+          {/* State A and State B Cards */}
+          <div className="flex flex-col space-y-3.5">
+            {activeExp.stateA && renderStateCard(activeExp.stateA, true)}
+            {activeExp.stateB && renderStateCard(activeExp.stateB, false)}
+          </div>
         </div>
       ) : (
         /* Idle Experiment Selection Interface */

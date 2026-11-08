@@ -12,6 +12,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+.env*.local
 
 # Editor directories and files
 .vscode/*
@@ -26,3 +29,13 @@ dist-ssr
 
 # Temporary test scripts and scratch artifacts
 scratch/
+artifacts/
+cache/
+
+# Cloudflare D1 Local State & Admin Database Backups
+.wrangler/
+backups/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+backup*.sql

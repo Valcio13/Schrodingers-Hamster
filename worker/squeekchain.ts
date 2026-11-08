@@ -143,3 +143,122 @@ export function calculateEnergyFromWork(
     deltaWorkUnits: deltaWork
   };
 }
+
+export interface SqueekBlockVerification {
+  settledBlockHeight: number;
+  settledRound: number;
+  confirmedAtMs: number;
+  roundStartMs: number;
+  roundEndMs: number;
+  transactionHash: string;
+  isSettled: boolean;
+  status: string;
+  chainId: string;
+  coreAddress: string;
+  provisionalBlockHeight?: number;
+}
+
+/**
+ * Queries the official Squeekchain API to retrieve the current strictly SETTLED Squeek block.
+ * Validates Sepolia chain ID (11155111), core identity, and confirmed anchor state.
+ * Provisional / in-progress blocks alone are explicitly flagged and rejected for mint settlement.
+ */
+export async function fetchVerifiedSqueekBlock(options?: {
+  customFetch?: typeof fetch;
+  mockBlock?: Partial<SqueekBlockVerification>;
+}): Promise<SqueekBlockVerification> {
+  if (options?.mockBlock) {
+    if (options.mockBlock.status && options.mockBlock.status !== 'available') {
+      throw new Error(`Squeekchain reporting service status: ${options.mockBlock.status}`);
+    }
+    const settledRound = options.mockBlock.settledRound ?? 1266;
+    const roundStartMs = options.mockBlock.roundStartMs ?? Date.now();
+    const roundEndMs = options.mockBlock.roundEndMs ?? Date.now();
+    return {
+      settledBlockHeight: options.mockBlock.settledBlockHeight ?? 8430,
+      settledRound,
+      confirmedAtMs: options.mockBlock.confirmedAtMs ?? Date.now(),
+      roundStartMs,
+      roundEndMs,
+      transactionHash: options.mockBlock.transactionHash ?? '0xmock',
+      isSettled: options.mockBlock.isSettled ?? true,
+      status: options.mockBlock.status ?? 'available',
+      chainId: options.mockBlock.chainId ?? '11155111',
+      coreAddress: options.mockBlock.coreAddress ?? '0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44',
+      provisionalBlockHeight: options.mockBlock.provisionalBlockHeight ?? options.mockBlock.settledBlockHeight ?? 8430
+    };
+  }
+
+  const fetchFn = options?.customFetch || fetch;
+
+  const [coreRes, blocksRes] = await Promise.all([
+    fetchFn('https://api.squeekchain.com/v1/core', {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(6000)
+    }),
+    fetchFn('https://api.squeekchain.com/v1/measurement/blocks', {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(6000)
+    })
+  ]);
+
+  if (!coreRes.ok) {
+    throw new Error(`Squeekchain Core API error: HTTP ${coreRes.status}`);
+  }
+  if (!blocksRes.ok) {
+    throw new Error(`Squeekchain Blocks API error: HTTP ${blocksRes.status}`);
+  }
+
+  const coreData = await coreRes.json() as any;
+  const blocksData = await blocksRes.json() as any;
+
+  // 1. Validate Target Chain Identity
+  const chainId = String(coreData?.chain?.chainId || blocksData?.chain?.chainId || '');
+  if (chainId !== '11155111') {
+    throw new Error(`Invalid Squeekchain chain ID ${chainId}. Expected 11155111 (Sepolia).`);
+  }
+
+  // 2. Validate Service Availability
+  if (coreData?.status !== 'available' && blocksData?.status !== 'available') {
+    throw new Error(`Squeekchain reporting service status: ${coreData?.status || blocksData?.status}`);
+  }
+
+  // 3. Extract Anchor (Settled on Sepolia)
+  const anchor = blocksData?.anchor;
+  if (!anchor || typeof anchor.blockHeight === 'undefined' || typeof anchor.settledThroughRound === 'undefined') {
+    throw new Error('Squeekchain measurement anchor missing or unconfirmed.');
+  }
+
+  const settledBlockHeight = Number(anchor.blockHeight);
+  const settledRound = Number(anchor.settledThroughRound);
+  const confirmedAtMs = anchor.confirmedAt ? new Date(anchor.confirmedAt).getTime() : 0;
+  const txHash = String(anchor.transactionHash || '');
+
+  // 4. Calculate Scheduled Round Boundary
+  const roundSchedule = blocksData?.roundSchedule || {};
+  const genesisTimestamp = Number(roundSchedule.genesisTimestamp || 1793022600);
+  const roundDuration = Number(roundSchedule.roundDurationSeconds || 600);
+  const roundStartMs = (genesisTimestamp + (settledRound - 1) * roundDuration) * 1000;
+  const roundEndMs = (genesisTimestamp + settledRound * roundDuration) * 1000;
+
+  // 5. Provisional block height (for telemetry display, NOT mint unlocking)
+  const provisionalBlockHeight = Number(blocksData?.projected?.blockHeight || settledBlockHeight);
+
+  if (isNaN(settledBlockHeight) || settledBlockHeight <= 0) {
+    throw new Error('Invalid settled Squeek block height returned by API.');
+  }
+
+  return {
+    settledBlockHeight,
+    settledRound,
+    confirmedAtMs,
+    roundStartMs,
+    roundEndMs,
+    transactionHash: txHash,
+    isSettled: true,
+    status: blocksData.status || 'available',
+    chainId,
+    coreAddress: blocksData?.chain?.coreAddress || coreData?.identities?.core || '',
+    provisionalBlockHeight
+  };
+}

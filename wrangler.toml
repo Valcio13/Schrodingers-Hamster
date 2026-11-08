@@ -3,11 +3,15 @@ main = "worker/index.ts"
 compatibility_date = "2024-04-01"
 compatibility_flags = ["nodejs_compat"]
 
-[site]
-bucket = "./dist"
+[vars]
+ENABLE_NFT_MINTING = "true"
+NFT_BETA_RESTRICTED = "true"
+NFT_BETA_ALLOWED_WALLETS = "0xF4ed194582bc6416d8A9FA9e0465A02A012A9760"
+NFT_CONTRACT_ADDRESS = "0xd77e88ccdb7b535133796d428e95322217ce99a4"
+MINT_AUTHORIZER_ADDRESS = "0xaB2A8E39D4B5e93E3Ea0296A487eFA84b25CC70C"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "schrodingers-hamster-db"
-database_id = "local-d1-placeholder"
+database_id = "fdbddeaf-48d8-45ee-8b3c-c33c17edc79e"
 migrations_dir = "worker/migrations"

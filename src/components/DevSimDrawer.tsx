@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { PlayerState } from '../types/game';
+import { PlayerState, MAX_BREEDING_CHARGES, WORK_PER_BREEDING_CHARGE } from '../types/game';
 import { SqueekTelemetry } from '../../worker/squeekchain';
-import { Wrench, Terminal, RotateCcw, Zap, ExternalLink, X } from 'lucide-react';
+import { Wrench, Terminal, RotateCcw, Zap, ExternalLink, X, Dna, Plus } from 'lucide-react';
 import { audio } from '../services/audio';
 
 interface DevSimDrawerProps {
@@ -15,6 +15,8 @@ interface DevSimDrawerProps {
   onSetBatteryPercentage?: (pct: number) => void;
   onSetBatteryCapacity?: (cap: number) => void;
   onSetActivityRpm?: (rpm: number) => void;
+  onSetBreedingCharges?: (charges: number, progress?: number) => void;
+  onAddBreedingCharges?: (amount?: number) => void;
 }
 
 export const DevSimDrawer: React.FC<DevSimDrawerProps> = ({
@@ -27,7 +29,9 @@ export const DevSimDrawer: React.FC<DevSimDrawerProps> = ({
   onOpenAnimationGallery,
   onSetBatteryPercentage,
   onSetBatteryCapacity,
-  onSetActivityRpm
+  onSetActivityRpm,
+  onSetBreedingCharges,
+  onAddBreedingCharges
 }) => {
   const [isSimulating, setIsSimulating] = useState(false);
 
@@ -35,7 +39,7 @@ export const DevSimDrawer: React.FC<DevSimDrawerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-slate-900 border-2 border-amber-500/40 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative">
+      <div className="bg-slate-900 border-2 border-amber-500/40 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 font-mono text-xs font-bold flex items-center gap-1.5 border border-amber-500/40">
@@ -112,6 +116,81 @@ export const DevSimDrawer: React.FC<DevSimDrawerProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Breeding Charges Simulation Controls */}
+        {(onSetBreedingCharges || onAddBreedingCharges) && (
+          <div className="space-y-2 p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <Dna className="w-3.5 h-3.5 text-pink-400" /> Quantum Incubator Charges:
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono text-amber-400 font-bold flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-amber-400" /> {player.breedingCharges || 0} / {MAX_BREEDING_CHARGES}
+                </span>
+                <span className="text-[10px] font-mono text-cyan-400">
+                  ({player.breedingChargeProgress || 0}/{WORK_PER_BREEDING_CHARGE} pts)
+                </span>
+              </div>
+            </div>
+
+            {/* Direct Charge Setting (0, 1, 2, 3 Charges) */}
+            {onSetBreedingCharges && (
+              <div className="grid grid-cols-4 gap-1.5 font-mono text-xs">
+                {[0, 1, 2, 3].map(c => (
+                  <button
+                    key={c}
+                    data-testid={`btn-charges-test-${c}`}
+                    onClick={() => {
+                      audio.playCharge();
+                      onSetBreedingCharges(c, c === 3 ? WORK_PER_BREEDING_CHARGE : 0);
+                    }}
+                    className={`py-1.5 px-1 rounded-lg text-center font-bold transition-colors border ${
+                      (player.breedingCharges || 0) === c
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-400/80 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
+                        : 'bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 border-slate-700 hover:border-amber-400/50'
+                    }`}
+                  >
+                    {c} {c === 1 ? 'Charge' : 'Charges'}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Quick Actions: +1 Charge and +2,000 Work Units */}
+            <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
+              {onAddBreedingCharges && (
+                <button
+                  data-testid="btn-add-charge"
+                  onClick={() => {
+                    audio.playCharge();
+                    onAddBreedingCharges(1);
+                  }}
+                  disabled={(player.breedingCharges || 0) >= MAX_BREEDING_CHARGES}
+                  className="py-1.5 px-2 rounded-lg bg-pink-950/60 hover:bg-pink-900/80 active:bg-pink-950 border border-pink-700/60 text-pink-200 text-center font-bold transition-colors disabled:opacity-40 flex items-center justify-center gap-1"
+                >
+                  <Plus className="w-3 h-3 text-pink-400" />
+                  <span>+1 Charge</span>
+                </button>
+              )}
+
+              <button
+                data-testid="btn-simulate-charge-work"
+                onClick={async () => {
+                  audio.playZap();
+                  setIsSimulating(true);
+                  await onSimulateWork(2000); // 2000 units = 1 breeding charge + 20 E
+                  setIsSimulating(false);
+                }}
+                disabled={isSimulating}
+                className="py-1.5 px-2 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 active:bg-cyan-950 border border-cyan-700/60 text-cyan-200 text-center font-bold transition-colors disabled:opacity-40 flex items-center justify-center gap-1"
+              >
+                <Zap className="w-3 h-3 text-cyan-400" />
+                <span>+2,000 Work (1 Charge)</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Hamster Sprint & Wheel Activity Test (Rest 0 RPM, Jog 28 RPM, Sprint 85 RPM) */}
         {onSetActivityRpm && (

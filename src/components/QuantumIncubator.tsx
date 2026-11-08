@@ -8,6 +8,8 @@ import {
   WORK_PER_BREEDING_CHARGE,
   MAX_BREEDING_CHARGES,
   MAX_HYBRID_CAPACITY,
+  getMaxHybridCapacity,
+  NOTE_COST_BREEDING_CHARGE,
   LIVE_BREEDING_COOLDOWN_MS
 } from '../types/game';
 import { SqueekTelemetry } from '../../worker/squeekchain';
@@ -40,6 +42,10 @@ interface QuantumIncubatorProps {
   onSetLabDisplay: (hybridId: string | null) => Promise<void>;
   onViewInDex?: () => void;
   isStarting?: boolean;
+  onQuickDevAddCharge?: () => void;
+  onOpenDevTools?: () => void;
+  onSynthesizeCharge?: () => Promise<void>;
+  isSynthesizing?: boolean;
 }
 
 export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
@@ -51,7 +57,11 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
   onRenameHybrid,
   onSetLabDisplay,
   onViewInDex,
-  isStarting = false
+  isStarting = false,
+  onQuickDevAddCharge,
+  onOpenDevTools,
+  onSynthesizeCharge,
+  isSynthesizing = false
 }) => {
   const discoveredSpeciesIds = Object.keys(player.discoveredHamsters || {});
 
@@ -83,7 +93,8 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
   const cooldownMinsRemaining = Math.max(0, Math.ceil((LIVE_BREEDING_COOLDOWN_MS - liveCooldownElapsed) / 60000));
 
   const totalHybrids = player.hybrids?.length || 0;
-  const isCapacityFull = totalHybrids >= MAX_HYBRID_CAPACITY;
+  const maxCapacity = getMaxHybridCapacity(player);
+  const isCapacityFull = totalHybrids >= maxCapacity;
 
   // Countdown timer for incubation
   useEffect(() => {
@@ -264,7 +275,7 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs">
             <span className="text-slate-400">Hybrids:</span>
             <span className={`font-bold ${isCapacityFull ? 'text-rose-400' : 'text-lime-400'}`}>
-              {totalHybrids} / {MAX_HYBRID_CAPACITY}
+              {totalHybrids} / {maxCapacity}
             </span>
           </div>
         </div>
@@ -497,7 +508,7 @@ export const QuantumIncubator: React.FC<QuantumIncubatorProps> = ({
             <div className="text-xs text-slate-400 font-mono">
               {isCapacityFull ? (
                 <span className="text-rose-400 flex items-center gap-1">
-                  <ShieldAlert className="w-4 h-4" /> Capacity Full (30/30). Release a hybrid before breeding.
+                  <ShieldAlert className="w-4 h-4" /> Capacity Full ({totalHybrids}/{maxCapacity}). Expand colony habitat or release a hybrid.
                 </span>
               ) : isLiveEligible ? (
                 <span className="text-lime-300 font-bold flex items-center gap-1">

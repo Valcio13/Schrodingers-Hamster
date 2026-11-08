@@ -1,5 +1,7 @@
 # Schrödinger's Hamster 🐹⚛️⚡
 
+squeekchain-project: 9b0a28e7-11f6-48d5-8e92-58cf8954b8e8
+
 > **A charming, quantum laboratory idle-interactive game powered by real-world physical hamster athletics on Squeekchain.**  
 > *Cozy Pixel Art × Mad Scientist Cyber-Laboratory × Cute Cosmic Horror*
 

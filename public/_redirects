@@ -1,0 +1,3 @@
+# Cloudflare Pages Redirects & Edge Proxy
+/api/*  https://schrodingers-hamster.valcio222.workers.dev/api/:splat  200
+/*      /index.html                                                     200

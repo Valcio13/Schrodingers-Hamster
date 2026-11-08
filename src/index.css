@@ -1231,3 +1231,25 @@
   transform-origin: 50% 90%;
   will-change: transform;
 }
+
+/* Quantum Chamber Superposition Striped Progress Animation */
+@keyframes quantumStripes {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 0;
+  }
+}
+
+.animate-quantum-stripes {
+  background-size: 20px 20px;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(236, 72, 153, 0.95),
+    rgba(236, 72, 153, 0.95) 10px,
+    rgba(168, 85, 247, 0.9) 10px,
+    rgba(168, 85, 247, 0.9) 20px
+  );
+  animation: quantumStripes 1.2s linear infinite;
+}

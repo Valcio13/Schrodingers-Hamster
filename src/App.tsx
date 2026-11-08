@@ -16,6 +16,7 @@ import {
   revealExperiment,
   useGhostSight,
   unlockResearch,
+  synthesizeResearchNotes,
   assignAssistant,
   renameHamster,
   toggleFavoriteHamster,
@@ -31,12 +32,15 @@ import {
   fetchTelemetry,
   resetLab,
   setDevBatteryState,
-  setDevActivityRpm
+  setDevActivityRpm,
+  setDevBreedingCharges,
+  addDevBreedingCharges
 } from './services/api';
 import { audio } from './services/audio';
 import { LabEnvironment } from './components/LabEnvironment';
 import { BatteryConduit } from './components/BatteryConduit';
 import { ExperimentStation } from './components/ExperimentStation';
+import { PixelHamster } from './components/PixelHamster';
 import { QuantumIncubator } from './components/QuantumIncubator';
 import { ResearchNotebook } from './components/ResearchNotebook';
 import { QuantumDex } from './components/QuantumDex';
@@ -45,6 +49,8 @@ import { DevSimDrawer } from './components/DevSimDrawer';
 import { HybridPreviewGallery } from './components/HybridPreviewGallery';
 import { SqueektoshiAnimationPreview } from './components/SqueektoshiAnimationPreview';
 import { HowToPlayModal } from './components/HowToPlayModal';
+import { BackupRecoveryModal } from './components/BackupRecoveryModal';
+import { WalletConnectButton } from './components/WalletConnectButton';
 import {
   Zap,
   BookOpen,
@@ -60,7 +66,8 @@ import {
   X,
   Atom,
   HelpCircle,
-  Lock
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -74,11 +81,13 @@ export const App: React.FC = () => {
   const [isStartingExp, setIsStartingExp] = useState(false);
   const [isStartingIncubation, setIsStartingIncubation] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isMuted, setIsMuted] = useState(audio.isMuted);
   const [isDevOpen, setIsDevOpen] = useState(false);
   const [showPreviewGallery, setShowPreviewGallery] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
   const [recentResearchUnlock, setRecentResearchUnlock] = useState<ResearchUpgrade | null>(null);
   const researchUnlockTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showAnimationGallery, setShowAnimationGallery] = useState(false);
@@ -87,6 +96,7 @@ export const App: React.FC = () => {
   const [lastSqueekBonus, setLastSqueekBonus] = useState<number | null>(null);
   const bonusTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isLoadingSave, setIsLoadingSave] = useState<boolean>(false);
 
   const triggerBonusNotification = useCallback((earned: number) => {
     if (earned <= 0) return;
@@ -123,6 +133,7 @@ export const App: React.FC = () => {
 
   // Initial load
   const loadInitialData = useCallback(async () => {
+    setIsLoadingSave(true);
     try {
       const [state, telem] = await Promise.all([
         fetchPlayerState(),
@@ -130,9 +141,12 @@ export const App: React.FC = () => {
       ]);
       setPlayer(state);
       setTelemetry(telem);
+      setErrorMsg(null);
     } catch (err: any) {
       console.error('Failed to load initial lab state:', err);
-      setErrorMsg('Failed to connect to local game server.');
+      setErrorMsg(err.message || 'Failed to connect to local game server.');
+    } finally {
+      setIsLoadingSave(false);
     }
   }, []);
 
@@ -146,6 +160,7 @@ export const App: React.FC = () => {
       if (e.key === 'Escape') {
         setActiveModal(null);
         setShowHowToPlay(false);
+        setShowBackupModal(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -227,11 +242,39 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  const handleDevSetBreedingCharges = useCallback(async (charges: number, progress?: number) => {
+    if (!player) return;
+    const targetProgress = typeof progress === 'number' ? progress : (charges >= 3 ? 2000 : 0);
+    setPlayer(prev => prev ? { ...prev, breedingCharges: charges, breedingChargeProgress: targetProgress } : null);
+    try {
+      const res = await setDevBreedingCharges(charges, progress);
+      setPlayer(res.player);
+      setTelemetry(res.telemetry);
+    } catch (err) {
+      console.error('Failed to sync dev breeding charges:', err);
+    }
+  }, [player]);
+
+  const handleDevAddBreedingCharges = useCallback(async (amount: number = 1) => {
+    if (!player) return;
+    const newCharges = Math.min(3, (player.breedingCharges || 0) + amount);
+    setPlayer(prev => prev ? { ...prev, breedingCharges: newCharges } : null);
+    try {
+      const res = await addDevBreedingCharges(amount);
+      setPlayer(res.player);
+      setTelemetry(res.telemetry);
+    } catch (err) {
+      console.error('Failed to sync dev add breeding charges:', err);
+    }
+  }, [player]);
+
   useEffect(() => {
     (window as any).__setDevBatteryPct = handleDevSetBatteryPercentage;
     (window as any).__setDevBatteryCap = handleDevSetBatteryCapacity;
     (window as any).__setDevActivityRpm = handleDevSetActivityRpm;
-  }, [handleDevSetBatteryPercentage, handleDevSetBatteryCapacity, handleDevSetActivityRpm]);
+    (window as any).__setDevBreedingCharges = handleDevSetBreedingCharges;
+    (window as any).__addDevBreedingCharge = handleDevAddBreedingCharges;
+  }, [handleDevSetBatteryPercentage, handleDevSetBatteryCapacity, handleDevSetActivityRpm, handleDevSetBreedingCharges, handleDevAddBreedingCharges]);
 
   // Handlers
   const handleSyncWork = async () => {
@@ -279,6 +322,25 @@ export const App: React.FC = () => {
       audio.playCharge();
     } catch (err: any) {
       setErrorMsg(err.message || 'Could not use Quantum Sight.');
+    }
+  };
+
+
+  const handleSynthesizeNotes = async (action: 'battery' | 'breeding_charge' | 'habitat_expansion') => {
+    setIsSynthesizing(true);
+    try {
+      const res = await synthesizeResearchNotes(action);
+      setPlayer(res.player);
+      if (action === 'habitat_expansion') {
+        audio.playDiscovery();
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      } else {
+        audio.playCharge();
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to synthesize research notes.');
+    } finally {
+      setIsSynthesizing(false);
     }
   };
 
@@ -456,10 +518,32 @@ export const App: React.FC = () => {
   if (!player) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto rounded-full border-4 border-lime-400 border-t-transparent animate-spin" />
-          <h2 className="font-fredoka text-xl font-bold">Initializing Schrödinger's Lab...</h2>
-          <p className="text-xs text-slate-400 font-mono">Syncing Squeekchain verified telemetry</p>
+        <div className="text-center space-y-4 max-w-md p-6 bg-slate-900/80 rounded-2xl border border-slate-800 shadow-2xl">
+          {errorMsg ? (
+            <>
+              <div className="w-14 h-14 mx-auto rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 text-2xl">
+                ⚠️
+              </div>
+              <h2 className="font-fredoka text-xl font-bold text-white">Laboratory Save Load Failed</h2>
+              <p className="text-xs text-rose-300 font-mono">{errorMsg}</p>
+              <p className="text-xs text-slate-400">
+                Your player progression is protected. The server refused to overwrite your save.
+              </p>
+              <button
+                onClick={loadInitialData}
+                disabled={isLoadingSave}
+                className="w-full py-2.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider bg-lime-400 text-slate-950 hover:bg-lime-300 transition-colors shadow-lg shadow-lime-400/20 disabled:opacity-50 cursor-pointer"
+              >
+                {isLoadingSave ? 'Retrying Connection...' : 'Retry Loading Lab'}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 mx-auto rounded-full border-4 border-lime-400 border-t-transparent animate-spin" />
+              <h2 className="font-fredoka text-xl font-bold">Initializing Schrödinger's Lab...</h2>
+              <p className="text-xs text-slate-400 font-mono">Syncing Squeekchain verified telemetry</p>
+            </>
+          )}
         </div>
       </div>
     );
@@ -528,6 +612,25 @@ export const App: React.FC = () => {
               <HelpCircle className="w-4 h-4 text-purple-400" />
               <span className="hidden sm:inline">How to Play</span>
             </button>
+
+            {/* Save Backup & Account Recovery Button */}
+            <button
+              onClick={() => {
+                audio.playClick();
+                setShowBackupModal(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-emerald-400 hover:text-emerald-300 font-mono text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+              title="Save Backup & Cryptographic Account Recovery"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">Save Backup</span>
+            </button>
+
+            {/* Web3 Wallet Connection & SIWE Auth */}
+            <WalletConnectButton onSessionChange={() => {
+              // Re-fetch player state to load linked wallet save
+              fetchPlayerState().then(setPlayer).catch(console.error);
+            }} />
 
             {/* Sound Toggle */}
             <button
@@ -917,6 +1020,18 @@ export const App: React.FC = () => {
                 >
                   Research
                 </button>
+                <button
+                  onClick={() => {
+                    audio.playClick();
+                    setIsDevOpen(true);
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 text-xs font-mono font-bold"
+                  data-testid="btn-dev-tools-incubator"
+                  title="Open Developer Simulation Console"
+                >
+                  <Wrench className="w-3.5 h-3.5" />
+                  <span>Dev Tools</span>
+                </button>
               </div>
             </div>
 
@@ -931,6 +1046,10 @@ export const App: React.FC = () => {
                 onSetLabDisplay={handleSetLabDisplayHybrid}
                 onViewInDex={() => setActiveTab('collection')}
                 isStarting={isStartingIncubation}
+                onQuickDevAddCharge={() => handleDevAddBreedingCharges(1)}
+                onOpenDevTools={() => setIsDevOpen(true)}
+                onSynthesizeCharge={() => handleSynthesizeNotes('breeding_charge')}
+                isSynthesizing={isSynthesizing}
               />
             ) : (
               <div className="p-12 text-center rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
@@ -987,6 +1106,8 @@ export const App: React.FC = () => {
               player={player}
               onUnlockUpgrade={handleUnlockUpgrade}
               isUnlocking={isUnlocking}
+              onSynthesizeNotes={handleSynthesizeNotes}
+              isSynthesizing={isSynthesizing}
             />
           </div>
         )}
@@ -1031,6 +1152,15 @@ export const App: React.FC = () => {
               onToggleFavoriteHybrid={handleToggleFavoriteHybrid}
               onReleaseHybrid={handleReleaseHybrid}
               onSetLabDisplayHybrid={handleSetLabDisplayHybrid}
+              onNftMintSuccess={(updatedHybrid) => {
+                setPlayer(prev => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    hybrids: (prev.hybrids || []).map(h => h.id === updatedHybrid.id ? updatedHybrid : h)
+                  };
+                });
+              }}
               isAssigning={isAssigning}
             />
           </div>
@@ -1052,6 +1182,8 @@ export const App: React.FC = () => {
         onSetBatteryPercentage={handleDevSetBatteryPercentage}
         onSetBatteryCapacity={handleDevSetBatteryCapacity}
         onSetActivityRpm={handleDevSetActivityRpm}
+        onSetBreedingCharges={handleDevSetBreedingCharges}
+        onAddBreedingCharges={handleDevAddBreedingCharges}
       />
 
       {/* Squeektoshi Animation Prototype & Comparison Preview */}
@@ -1235,6 +1367,19 @@ export const App: React.FC = () => {
         onClose={() => setShowHowToPlay(false)}
       />
 
+      {/* Save Backup & Account Recovery Modal */}
+      <BackupRecoveryModal
+        isOpen={showBackupModal}
+        onClose={() => setShowBackupModal(false)}
+        player={player}
+        onRestoreSuccess={(restored) => {
+          setPlayer(restored);
+          if (!sessionStorage.getItem('squeek_session_token')) {
+            localStorage.setItem('hamster_guest_player_id', restored.id);
+          }
+        }}
+      />
+
       {/* ========================================================================= */}
       {/* CONTEXTUAL MODAL 1: SCHRÖDINGER'S QUANTUM CHAMBER                        */}
       {/* ========================================================================= */}
@@ -1248,16 +1393,20 @@ export const App: React.FC = () => {
             }
           }}
         >
-          <div className="bg-slate-900 border-2 border-purple-500/50 rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl relative text-left">
+          <div className="bg-[#0e0a1f] border-2 border-purple-500/40 rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-[0_0_50px_rgba(168,85,247,0.25)] relative text-left">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/80 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400">
-                  <Atom className="w-5 h-5" />
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-purple-900/40 bg-[#120b29]/90 shrink-0">
+              <div className="flex items-center gap-3">
+                {/* Glowing bell jar with pixel hamster */}
+                <div className="w-12 h-12 rounded-2xl bg-purple-950/70 border border-purple-500/50 p-1 flex items-center justify-center relative shadow-[0_0_15px_rgba(168,85,247,0.35)] shrink-0 overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-b from-purple-400/20 via-transparent to-purple-950/50 pointer-events-none" />
+                  <div className="scale-75 transform">
+                    <PixelHamster speciesId="normal" size="sm" />
+                  </div>
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-base font-sans">Schrödinger Chamber</h3>
-                  <p className="text-xs text-slate-400">Quantum state observation & wavefunction collapse</p>
+                  <h3 className="font-bold text-white text-lg font-sans tracking-tight">Schrödinger Chamber</h3>
+                  <p className="text-xs text-slate-400 font-sans">Quantum state observation & wavefunction collapse</p>
                 </div>
               </div>
 
@@ -1270,13 +1419,13 @@ export const App: React.FC = () => {
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 border ${
                     chamberSubTab === 'paradox'
-                      ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-600/30'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                      ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-600/40'
+                      : 'bg-purple-950/60 border-purple-500/40 text-purple-200 hover:text-white hover:bg-purple-900/60'
                   }`}
                   title="Toggle Grand Paradox finale"
                 >
-                  <Crown className="w-3.5 h-3.5 text-yellow-300" />
-                  <span className="hidden sm:inline">Grand Paradox</span>
+                  <Crown className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Grand Paradox</span>
                 </button>
 
                 <button
@@ -1284,10 +1433,10 @@ export const App: React.FC = () => {
                     audio.playClick();
                     setActiveModal(null);
                   }}
-                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                  className="p-1.5 rounded-xl bg-slate-900/80 border border-slate-700/80 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
                   title="Close (ESC)"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -1441,6 +1590,8 @@ export const App: React.FC = () => {
                   setActiveTab('collection');
                 }}
                 isStarting={isStartingIncubation}
+                onQuickDevAddCharge={() => handleDevAddBreedingCharges(1)}
+                onOpenDevTools={() => setIsDevOpen(true)}
               />
             </div>
           </div>

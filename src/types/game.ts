@@ -274,6 +274,62 @@ export interface QuantumHybrid {
   expectedReturnAt?: number | null;
   lastFateIncidentAt?: number | null;
   fateHistory?: QuantumFateIncident[];
+  // Web3 v1 Immutable NFT fields
+  nftTokenId?: number | null;
+  nftTxHash?: string | null;
+  nftContractAddress?: string | null;
+  nftMintedAt?: number | null;
+  nftMetadataUri?: string | null;
+  nftOwnerAddress?: string | null;
+}
+
+export interface MintAuthorizationPayload {
+  recipient: string;
+  tokenId: number;
+  tokenURI: string;
+  metadataHash: string;
+  specimenHash: string;
+  nonce: string;
+  deadline: number;
+  signature: string;
+  contractAddress: string;
+  chainId: number;
+}
+
+export type MintGateStatus =
+  | 'not_requested'
+  | 'awaiting_block'
+  | 'verifying'
+  | 'unlocked'
+  | 'minted';
+
+export interface MintGateInfo {
+  status: MintGateStatus;
+  requestId?: string;
+  specimenId?: string;
+  baselineBlockHeight?: number;
+  baselineRound?: number;
+  requestTimestamp?: number;
+  liveBlockHeight?: number;
+  qualifyingBlockHeight?: number;
+  qualifyingRound?: number;
+  qualifyingConfirmedAt?: number;
+  unlockedAt?: number;
+  apiError?: string;
+}
+
+export interface Web3WalletState {
+  connected: boolean;
+  address: string | null;
+  chainId: number | null;
+  isSepolia: boolean;
+}
+
+export interface SiweSessionState {
+  authenticated: boolean;
+  address: string | null;
+  playerId: string | null;
+  sessionToken: string | null;
 }
 
 export interface HybridStatePreview {
@@ -520,6 +576,7 @@ export interface ActiveExperimentState {
 
 export interface PlayerState {
   id: string;
+  createdAt?: number;
   batteryEnergy: number;
   batteryCapacity: number;
   researchInsight: number;
@@ -544,13 +601,65 @@ export interface PlayerState {
   completedGrandParadox: boolean;
   totalExperimentsConducted: number;
   lastRegenAt: number;
+  lastActiveAt?: number;
   fractionalRegenMs: number;
+  hybridCapacityBonus?: number; // Additional hybrid slots earned from research mastery
+  researchMasteryLevel?: number; // Mastery rank achieved through note investment
+  saveRevision?: number; // Monotonically increasing revision counter (server-authoritative)
+  saveLineageId?: string; // Stable lineage identifier for continuous progression branch
+  lastRestoredBackupId?: string | null; // ID of the most recent restored backup snapshot
+}
+
+export interface PlayerBackupSummary {
+  saveRevision?: number;
+  labLevel: number;
+  totalHamsters: number;
+  totalHybrids: number;
+  researchInsight: number;
+  batteryCapacity: number;
+  breedingCharges: number;
+  totalExperiments: number;
+}
+
+export interface PlayerBackupFile {
+  app: string;
+  version: number;
+  backupId?: string;
+  lineageId?: string;
+  saveRevision?: number;
+  exportedAt: number;
+  exportedDate: string;
+  playerId: string;
+  walletAddress?: string | null;
+  summary: PlayerBackupSummary;
+  playerState: PlayerState;
+  signature: string;
+}
+
+export interface BackupValidationResult {
+  valid: boolean;
+  canRestore: boolean;
+  error?: string | null;
+  message: string;
+  summary?: PlayerBackupSummary;
+  exportedDate?: string;
+  backupId?: string;
+  saveRevision?: number;
 }
 
 export const MAX_HYBRID_CAPACITY = 30;
 export const WORK_PER_BREEDING_CHARGE = 2000;
 export const MAX_BREEDING_CHARGES = 3;
 export const LIVE_BREEDING_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+
+export const NOTE_COST_BATTERY_RECHARGE = 15;
+export const NOTE_ENERGY_RECHARGE_AMOUNT = 50;
+export const NOTE_COST_BREEDING_CHARGE = 25;
+export const NOTE_COST_HABITAT_EXPANSION = 50;
+
+export function getMaxHybridCapacity(player?: PlayerState | null): number {
+  return MAX_HYBRID_CAPACITY + (player?.hybridCapacityBonus || 0);
+}
 
 // Quantum Fate Constants
 export const NEWBORN_PROTECTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days of protection from permanent death

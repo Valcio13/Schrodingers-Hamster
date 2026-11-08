@@ -22,7 +22,12 @@ import {
   MAX_ABSENCE_LEGENDARY_MYTHIC_MS,
   QuantumFateIncident,
   FateEventType,
-  isQuantumGeneticsUnlocked
+  isQuantumGeneticsUnlocked,
+  getMaxHybridCapacity,
+  NOTE_COST_BATTERY_RECHARGE,
+  NOTE_ENERGY_RECHARGE_AMOUNT,
+  NOTE_COST_BREEDING_CHARGE,
+  NOTE_COST_HABITAT_EXPANSION
 } from '../src/types/game';
 import { generateQuantumHybrid } from '../src/utils/hybridGenerator';
 import { SqueekTelemetry } from './squeekchain';
@@ -35,7 +40,12 @@ export {
   NEWBORN_PROTECTION_MS,
   FATE_ROLL_INTERVAL_MS,
   FATE_INCIDENT_COOLDOWN_MS,
-  MAX_ABSENCE_LEGENDARY_MYTHIC_MS
+  MAX_ABSENCE_LEGENDARY_MYTHIC_MS,
+  getMaxHybridCapacity,
+  NOTE_COST_BATTERY_RECHARGE,
+  NOTE_ENERGY_RECHARGE_AMOUNT,
+  NOTE_COST_BREEDING_CHARGE,
+  NOTE_COST_HABITAT_EXPANSION
 };
 
 export const MAX_COLLECTION_CAPACITY = 30;
@@ -83,7 +93,10 @@ export function createInitialPlayerState(playerId: string, currentSettledWork: n
     fractionalRegenMs: 0,
     lastFateRollAt: now,
     lastSeriousIncidentAt: 0,
-    recentFateIncidents: []
+    recentFateIncidents: [],
+    saveRevision: 1,
+    saveLineageId: `lin_${playerId}_${now}`,
+    lastRestoredBackupId: null
   };
 }
 
@@ -162,6 +175,15 @@ export function ensurePlayerMigration(player: any, now: number = Date.now()) {
   }
   if (!player.recentFateIncidents) {
     player.recentFateIncidents = [];
+  }
+  if (!player.saveRevision) {
+    player.saveRevision = 1;
+  }
+  if (!player.saveLineageId) {
+    player.saveLineageId = `lin_${player.id}`;
+  }
+  if (player.lastRestoredBackupId === undefined) {
+    player.lastRestoredBackupId = null;
   }
 
   // Ensure all hybrids have existenceStatus, fate fields, and initial hatched history
@@ -282,8 +304,9 @@ export function startIncubation(
   }
 
   const activeHybrids = (player.hybrids || []).filter(h => h.existenceStatus !== 'deceased');
-  if (activeHybrids.length >= MAX_HYBRID_CAPACITY) {
-    throw new Error(`Quantum Hybrids capacity reached (${MAX_HYBRID_CAPACITY}/${MAX_HYBRID_CAPACITY}). Release an unwanted hybrid to incubate.`);
+  const maxCapacity = getMaxHybridCapacity(player);
+  if (activeHybrids.length >= maxCapacity) {
+    throw new Error(`Quantum Hybrids capacity reached (${activeHybrids.length}/${maxCapacity}). Expand colony habitat or release an unwanted hybrid to incubate.`);
   }
 
   if (player.activeIncubation) {
